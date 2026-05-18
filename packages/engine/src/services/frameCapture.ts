@@ -365,10 +365,14 @@ async function pollSubCompositionTimelines(
     }
     return true;
   })()`;
-  const beforePoll = Date.now();
+  const timelinesBeforePoll = Number(
+    await page.evaluate(`Object.keys(window.__timelines || {}).length`),
+  );
   const ready = await pollPageExpression(page, expression, timeoutMs, intervalMs);
-  const pollDurationMs = Date.now() - beforePoll;
-  if (ready && pollDurationMs > intervalMs * 2) {
+  const timelinesAfterPoll = Number(
+    await page.evaluate(`Object.keys(window.__timelines || {}).length`),
+  );
+  if (ready && timelinesAfterPoll > timelinesBeforePoll) {
     await page.evaluate(`(function() {
       if (typeof window.__hfForceTimelineRebind === "function") {
         window.__hfForceTimelineRebind();

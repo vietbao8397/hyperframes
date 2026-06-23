@@ -3,8 +3,9 @@
 You build one frame's composition file: `compositions/frames/<frame_id>.html`. Siblings build
 the other frames in parallel. The generic HyperFrames law — sub-composition shape, timeline
 registration, determinism, layout — lives in `hyperframes-core` (`references/sub-compositions.md`
-+ `determinism-rules.md` + `data-attributes.md`); read it first. This file covers the
-music-specific part.
+
+- `determinism-rules.md` + `data-attributes.md`); read it first. This file covers the
+  music-specific part.
 
 Your job: **follow the manual, fetch the materials, assemble.** The storyboard tells you WHAT
 (the frame's groups, each group's template / primitives, content, brand, real beat-anchor
@@ -47,7 +48,7 @@ If your dispatch carries lint / validate feedback from a prior pass, address eac
 1. **Read** your `## Frame` block, `frame.md`, and the body of every template / primitive it
    cites. Reproduce those recipes.
 2. **Work in frame-local time.** Subtract the frame start from every anchor: `local_t = track_t
-   − span_sec[0]`.
+− span_sec[0]`.
 3. **Author** `compositions/frames/<frame_id>.html`: a `<template>` wrapping `#stage`
    (`data-composition-id="<frame_id>"`), with all `<style>` / `<script>` inside it, and one
    paused `gsap.timeline({paused:true})` registered at `window.__timelines["<frame_id>"]`, built

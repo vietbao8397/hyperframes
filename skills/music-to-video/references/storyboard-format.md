@@ -20,51 +20,54 @@ YAML frontmatter (the video-wide spine) + one `## Frame N — <frame_id>` block 
 ```markdown
 ---
 compositionId: bgm
-duration_s: 30.0                 # == audiomap.audio.duration_sec, exactly
+duration_s: 30.0 # == audiomap.audio.duration_sec, exactly
 canvas: { w: 1920, h: 1080, fps: 30 }
-style:                           # brand spine — from the chosen frame.md preset (Step 3)
-  font: "EB Garamond / Inter / JetBrains Mono"   # the preset's typography, verbatim
-  palette: ["#FAF9F5", "#141413", "#CC785C", "#181715"]   # ≤4–6 swatches from the preset's colors
-assets: false                    # false, or a note like "assets/ has 6 user photos"
+style: # brand spine — from the chosen frame.md preset (Step 3)
+  font: "EB Garamond / Inter / JetBrains Mono" # the preset's typography, verbatim
+  palette: ["#FAF9F5", "#141413", "#CC785C", "#181715"] # ≤4–6 swatches from the preset's colors
+assets: false # false, or a note like "assets/ has 6 user photos"
 build_notes: ["one paused timeline per frame", "no remote assets"]
 avoid: ["generic slideshow", "tiny unreadable hero text"]
 ---
 
 ## Frame 1 — f1
-- src: compositions/frames/01-f1.html   # worker writes here; assembler refs it; stem (01-f1) = composition id
-- duration: 7.198s               # = span length; the assembler reads this for cumulative data-start
-- span_sec: [0.0, 7.198]         # track seconds; frames tile the track
-- pacing: beat_cut               # beat_cut | phrase_flow (from the skeleton; obey it)
+
+- src: compositions/frames/01-f1.html # worker writes here; assembler refs it; stem (01-f1) = composition id
+- duration: 7.198s # = span length; the assembler reads this for cumulative data-start
+- span_sec: [0.0, 7.198] # track seconds; frames tile the track
+- pacing: beat_cut # beat_cut | phrase_flow (from the skeleton; obey it)
 - mood: [hype]
 - feel: accelerating onset stream into a held downbeat
 
 ### Groups
+
 - **g1** — template: `intro-kinetic-cascade`
-  - span_sec: [0.0, 4.017]       # frame-LOCAL build is 0-based; these are TRACK seconds (worker subtracts frame start)
+  - span_sec: [0.0, 4.017] # frame-LOCAL build is 0-based; these are TRACK seconds (worker subtracts frame start)
   - params: { theme: "light", icon: "bolt", phrases: "[…]", climax: "{…}" }
   - role_bindings: { phrase: { times: [0.14, 0.55, 0.87] }, climax: { in: 3.79, iconAt: 4.9 } }
   - copy: "GROWTH THROUGH CREATIVITY"
 - **g2** — free_design
   - span_sec: [4.017, 7.198]
   - free_design: { dominant_system: "per-onset typography", primitives: ["content-swap", "braam-punch"], density_topology: "accumulate" }
-  - anchors: [4.10, 4.80, 5.50, 6.20]   # onset seconds the reveals ride (from audiomap)
+  - anchors: [4.10, 4.80, 5.50, 6.20] # onset seconds the reveals ride (from audiomap)
   - copy: ["BUILD", "SHIP", "REPEAT"]
 
 ## Frame 2 — f2
+
 …
 ```
 
 ## Frame block — required fields
 
-| field | meaning |
-| --- | --- |
-| heading `## Frame N — <frame_id>` | `frame_id` matches the `src` stem; `N` = the 1-based index. |
-| `src` | `compositions/frames/NN-<frame_id>.html` — where the worker writes; the assembler references it. Stem = `data-composition-id`. |
-| `duration` | the frame span length in seconds (e.g. `7.198s`) — **required**; the assembler sums these for cumulative `data-start`. |
-| `span_sec` | `[start, end]` track seconds. `duration = end − start`. |
-| `pacing` | `beat_cut` \| `phrase_flow` — from the skeleton; the worker must obey (no hard-cut on `phrase_flow`). |
-| `mood`, `feel` | from the skeleton; tone + the one-line music situation the planner matched against. |
-| `### Groups` list | ≥1 group; groups tile the frame span in order. |
+| field                             | meaning                                                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| heading `## Frame N — <frame_id>` | `frame_id` matches the `src` stem; `N` = the 1-based index.                                                                    |
+| `src`                             | `compositions/frames/NN-<frame_id>.html` — where the worker writes; the assembler references it. Stem = `data-composition-id`. |
+| `duration`                        | the frame span length in seconds (e.g. `7.198s`) — **required**; the assembler sums these for cumulative `data-start`.         |
+| `span_sec`                        | `[start, end]` track seconds. `duration = end − start`.                                                                        |
+| `pacing`                          | `beat_cut` \| `phrase_flow` — from the skeleton; the worker must obey (no hard-cut on `phrase_flow`).                          |
+| `mood`, `feel`                    | from the skeleton; tone + the one-line music situation the planner matched against.                                            |
+| `### Groups` list                 | ≥1 group; groups tile the frame span in order.                                                                                 |
 
 ## Group entry — exactly one of three kinds
 

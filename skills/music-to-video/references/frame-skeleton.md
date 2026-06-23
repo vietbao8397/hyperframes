@@ -17,10 +17,10 @@ edits the same file.
 `audiomap.json` is one analyzer's output. Some fields are robust on **any** music; some are
 reliable only when the music is **actually rhythmic**. This decides each frame's `pacing`:
 
-| Field | Trust |
-| --- | --- |
-| `energy_phases[]` (level / energy / density / feel), `events[]` + `onset_rate`, `rolls[]` (and their **absence**), `silences[]`, `hard_stops[]`, `key_moments[]`, `phrases[]`, `audio.duration_sec` | **Always** — robust measurements |
-| `tempo.bpm`, `grid.beats_sec` / `downbeats_sec` **precision** | **Only when the music is rhythmic.** On calm / sparse material the beat grid is a metronome the tracker *imposes* (often octave-doubled) — usually **more grid beats than real onsets**. Do **not** anchor cuts to it there. |
+| Field                                                                                                                                                                                               | Trust                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `energy_phases[]` (level / energy / density / feel), `events[]` + `onset_rate`, `rolls[]` (and their **absence**), `silences[]`, `hard_stops[]`, `key_moments[]`, `phrases[]`, `audio.duration_sec` | **Always** — robust measurements                                                                                                                                                                                             |
+| `tempo.bpm`, `grid.beats_sec` / `downbeats_sec` **precision**                                                                                                                                       | **Only when the music is rhythmic.** On calm / sparse material the beat grid is a metronome the tracker _imposes_ (often octave-doubled) — usually **more grid beats than real onsets**. Do **not** anchor cuts to it there. |
 
 - **Grid is reliable** when: rolls present, and/or dense phases, and/or high `onset_rate` with a steady grid.
 - **Grid is fictional** when: `rolls`≈0, mostly `sparse` phases, low `onset_rate` → pace by `phrases[]` + `energy_phases[]`, not beats.
@@ -58,30 +58,36 @@ A valid `STORYBOARD.md` with the spine set and every frame's treatment left for 
 ```markdown
 ---
 compositionId: bgm
-duration_s: 30.0                 # == audiomap.audio.duration_sec
+duration_s: 30.0 # == audiomap.audio.duration_sec
 canvas: { w: 1920, h: 1080, fps: 30 }
-style:                           # blank — Step 3 fills it from the chosen frame.md preset
+style: # blank — Step 3 fills it from the chosen frame.md preset
 build_notes: ["one paused timeline per frame", "no remote assets"]
 ---
 
 ## Frame 1 — f1
+
 - src: compositions/frames/01-f1.html
-- duration: 7.198s               # = span length; assembler sums these for cumulative data-start
-- span_sec: [0.0, 7.198]         # track seconds; frames tile the track
+- duration: 7.198s # = span length; assembler sums these for cumulative data-start
+- span_sec: [0.0, 7.198] # track seconds; frames tile the track
 - pacing: beat_cut
 - mood: [hype]
 - feel: accelerating onset stream building into a held downbeat
+
 ### Groups
+
 - TBD (Step 3)
 
 ## Frame 2 — f2
+
 - src: compositions/frames/02-f2.html
 - duration: 10.4s
 - span_sec: [7.198, 17.598]
 - pacing: phrase_flow
 - mood: [warm, cinematic]
 - feel: calm held pad, one long onset desert
+
 ### Groups
+
 - TBD (Step 3)
 ```
 

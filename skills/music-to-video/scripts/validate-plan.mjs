@@ -73,7 +73,9 @@ for (const f of frames) {
 sum = r3(sum);
 const tileTarget = Number.isFinite(declaredDur) ? declaredDur : audioDur;
 if (tileTarget != null && Math.abs(sum - tileTarget) > 0.1)
-  errors.push(`frame durations sum to ${sum}s but the track is ${tileTarget}s — frames must tile it gap-free`);
+  errors.push(
+    `frame durations sum to ${sum}s but the track is ${tileTarget}s — frames must tile it gap-free`,
+  );
 
 // ---------- group checks (warns) — parse RAW text ----------
 const FRAME_HEAD = /^##\s+(?:frame|scene|section)\b/i;
@@ -116,7 +118,9 @@ const framesWithGroups = new Set(blocks.map((b) => b.frameLabel));
 for (const f of frames) {
   const lbl = `Frame ${f.number ?? ""} — ${f.title ?? f.index}`.replace(/\s+—\s+$/, "");
   if (![...framesWithGroups].some((s) => s.includes(String(f.title ?? "")))) {
-    warns.push(`${lbl}: no parseable groups (expected \`- **gN** — template|free_design|asset …\`)`);
+    warns.push(
+      `${lbl}: no parseable groups (expected \`- **gN** — template|free_design|asset …\`)`,
+    );
   }
 }
 
@@ -131,7 +135,9 @@ for (const b of blocks) {
       warns.push(`${gid}: template \`${id}\` not found at templates/${id}/index.html`);
   }
   if (b.kind === "asset" && b.pacing === "phrase_flow" && /beat_cut/.test(blockText))
-    warns.push(`${gid}: beat_cut asset treatment on a phrase_flow frame — use ken_burns/crossfade instead`);
+    warns.push(
+      `${gid}: beat_cut asset treatment on a phrase_flow frame — use ken_burns/crossfade instead`,
+    );
 }
 
 // ---------- report ----------
@@ -141,4 +147,6 @@ if (errors.length) {
   console.error(`\nvalidate-plan: ${errors.length} error(s), ${warns.length} warning(s)`);
   process.exit(1);
 }
-console.log(`✓ validate-plan: ${frames.length} frames tile ${sum}s; ${blocks.length} groups; ${warns.length} warning(s)`);
+console.log(
+  `✓ validate-plan: ${frames.length} frames tile ${sum}s; ${blocks.length} groups; ${warns.length} warning(s)`,
+);

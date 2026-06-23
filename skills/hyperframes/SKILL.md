@@ -51,18 +51,18 @@ Routing needs to know **what the video is about** — its input and subject. If 
 
 ## Workflow cheat-sheet
 
-| Workflow                   | Use it for                                                                                                                             |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `/product-launch-video`    | Marketing / launching / promoting a **product** — from its URL, a brief, or a script (even if the site is only named)                  |
-| `/website-to-video`        | Turning a **general website** into a video — site tour, portfolio / landing-page showcase, social clip from the site's visuals         |
-| `/faceless-explainer`      | **Explaining a topic / concept** from text — no product, no URL; every visual is LLM-invented                                          |
-| `/pr-to-video`             | A **GitHub PR / code change** → changelog / feature-reveal / fix / refactor explainer                                                  |
-| `/embedded-captions`       | Adding **captions / subtitles** to an existing talking-head video (footage untouched)                                                  |
-| `/graphic-overlays`        | Packaging an existing talking-head video with **designed graphic overlays** — lower-thirds, data callouts, kinetic titles, pull-quotes |
-| `/motion-graphics`         | A short, **unnarrated, design-led motion graphic** — kinetic type, a stat / chart hit, a logo sting, a lower-third overlay             |
+| Workflow                   | Use it for                                                                                                                                                             |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/product-launch-video`    | Marketing / launching / promoting a **product** — from its URL, a brief, or a script (even if the site is only named)                                                  |
+| `/website-to-video`        | Turning a **general website** into a video — site tour, portfolio / landing-page showcase, social clip from the site's visuals                                         |
+| `/faceless-explainer`      | **Explaining a topic / concept** from text — no product, no URL; every visual is LLM-invented                                                                          |
+| `/pr-to-video`             | A **GitHub PR / code change** → changelog / feature-reveal / fix / refactor explainer                                                                                  |
+| `/embedded-captions`       | Adding **captions / subtitles** to an existing talking-head video (footage untouched)                                                                                  |
+| `/graphic-overlays`        | Packaging an existing talking-head video with **designed graphic overlays** — lower-thirds, data callouts, kinetic titles, pull-quotes                                 |
+| `/motion-graphics`         | A short, **unnarrated, design-led motion graphic** — kinetic type, a stat / chart hit, a logo sting, a lower-third overlay                                             |
 | `/music-to-video`          | A **music track** → a **beat-synced** video — lyric video, slideshow, or kinetic promo; the music drives pacing (optional user images / videos cut onto the beat grid) |
-| `/general-video`           | **Anything else** — longer or multi-scene pieces, a static loop / poster, a custom composition                                         |
-| `/remotion-to-hyperframes` | **Porting an existing Remotion (React) composition** to HyperFrames (migration, not creation)                                          |
+| `/general-video`           | **Anything else** — longer or multi-scene pieces, a static loop / poster, a custom composition                                                                         |
+| `/remotion-to-hyperframes` | **Porting an existing Remotion (React) composition** to HyperFrames (migration, not creation)                                                                          |
 
 **Disambiguation (only where confusable):**
 

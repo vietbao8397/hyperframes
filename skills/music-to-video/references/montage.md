@@ -11,6 +11,7 @@ realizes it inside the frame file (HOW). **Obey the frame's `pacing`.**
 ## The three treatments
 
 ### `beat_cut` — one clip per anchor (only on a `beat_cut` frame)
+
 The asset-driven analogue of a per-onset typographic group: cut to a new clip on each anchor
 (the frame's beats/onsets from the audiomap). Each clip is a `class="clip"` element
 (`<img>` for a photo, **muted** `<video>` for a motion clip) placed at its anchor with
@@ -21,12 +22,14 @@ crossfade the outgoing content to `opacity:0` ending **at** the next anchor, the
 Cut on the **strong** anchors; land a hero clip on a `key_moment`/downbeat.
 
 ### `ken_burns` — slow push on one clip (fits a `phrase_flow` frame)
+
 For calm frames: one clip held over the span with a slow scale/translate push (e.g. scale
 1.0→1.08 + a small drift) eased across the whole `span_sec` — paced by the frame, not by
 beats. No hard cuts. Crossfade in/out at the frame edges. This is the right asset treatment
 when the beat grid is unreliable (calm music).
 
 ### `bg_under_text` — clip dimmed behind a template/free group
+
 A full-bleed clip dimmed ~30–50% as the background of a group whose foreground is a template
 or free-compose typographic treatment. The text rides on the same anchors; the clip is the
 bed. Use when the user wants their footage present but the message must stay readable.

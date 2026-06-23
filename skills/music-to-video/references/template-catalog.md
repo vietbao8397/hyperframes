@@ -25,46 +25,55 @@ Pacing tag: every template below is **beat_cut** except `held-message-living-fie
 ---
 
 ### card-flyby
+
 - **What** — a depth column of cards rolls forward through perspective; each landing beat tumbles the next card into the front slot with a solid colored wipe, the old front falls toward camera, dwells shrink card-to-card so the deck accelerates into a held final card.
 - **Reach for it when** — a stream of discrete onsets that **accelerate** (gaps shrinking / a build into a downbeat) and you want to flash a **sequence of items** — titles, projects, posters, tiles — one per hit, climaxing on a held card.
 - **Params** — `theme`, `bgColor`, `cards`, `landings`, `yaw`
 
-### held-message-living-field  · phrase_flow
+### held-message-living-field · phrase_flow
+
 - **What** — a readable mark (logo / word / title) held dead still over a soft, color-shifting blurred field; only the field breathes.
 - **Reach for it when** — a **calm / sparse** stretch with an onset desert — energy present but few or no onsets (a held pad or riser); you have one word or mark to hold and let breathe.
 - **Params** — `markText`, `titleText`, `tagText`, `palette`, `flowSpeed`, `duration`
 
 ### held-text-strobe-burst
+
 - **What** — a dead-still word whose letters flip through texture-filled frames (texture-clipped fill + per-frame tint + bg color) every ~3 frames, in short bursts pinned to a roll.
 - **Reach for it when** — a **dense, hard-hitting roll / fill** and a single word you want to strobe through textures for a few bars. (Ships texture-mask PNGs under `assets/`.)
 - **Params** — `markText`, `fontStyle`, `markScale`, `idleColor`, `idleInk`, `frames`, `strobePlan`, `decor`, `duration`
 
 ### intro-kinetic-cascade
+
 - **What** — a line laid out as a sequence of big editorial **phrases** (each a stacked poster with one enlarged hero word), revealed word-by-word on its anchors, hard cut between phrases, climaxing on a phrase that slides in with a swappable ringing **icon** (bell / cursor / sparkle / emoji / SVG).
 - **Reach for it when** — an **intro / opening statement**: a short line to land word-by-word as big type, climaxing on one keyword + an icon. Medium-or-more energy, steady grid.
 - **Params** — `theme`, `icon`, `phrases`, `climax`
 
 ### logo-split-lockup-pulse
+
 - **What** — a two-part mark joined at center splits left↔right to open a gap, grows a center word-lockup one word per onset (key word lands on the downbeat surge), snap-closes on a hit, then pulses with the beat.
 - **Reach for it when** — a short **logo / brand sting** (not a typed sentence): fast dense onsets + a sustained roll bed to pulse on, with a left/right bracketing mark.
 - **Params** — `bgColor`, `markColor`, `textColor`, `leftMark`, `rightMark`, `word1`, `word2`, `word3`, `word4`
 
 ### poster-tile-mosaic
+
 - **What** — a packed **mosaic** of different-sized colored tiles that tessellate to fill the frame (no overlap), driven by interchangeable beat-synced operations: staggered enter/exit, locked global recolor, snake-fill + overlay.
 - **Reach for it when** — many discrete, individually-placeable onsets (a hit for every tile move) with distinct sub-phases you want articulated differently (accumulate → recolor-on-roll → fill-then-drop). A dense section best held as **one** rich tile program rather than split.
 - **Params** — `bgColor`, `tiles`, `bands`, `gap`, `showText`, `labels`, `program`
 
 ### roll-flipbook-word-cycle
+
 - **What** — a hi-hat roll drives a centred word that flips every 16th-note through a word list; optionally the flicker resolves and locks into a final phrase.
 - **Reach for it when** — a **fast sustained-fill roll** (hundreds of hits/min, ~16th-note) with no single readable message — fill the roll with a rapidly-cycling word flipbook.
 - **Params** — `bgColor`, `textColor`, `accentColor`, `flipWords`, `resolveText`, `periodChar`
 
 ### split-anchor-word-slot
+
 - **What** — a held left anchor column of fixed-word rows beside a torn-paper word-slot box on the right, driven by beat-synced operators: anchor lock-in, slot word-group cycle (in/out + per-line color), full-scene background flip, per-beat jitter, box-zoom exit wipe. Row count + number of flips are data.
 - **Reach for it when** — a short section with a **held idea** (a brand / name to anchor on the left) **and** a stream of onsets popping separate words on the right, plus a dense run to ride a shake on and a strong downbeat to wipe out into.
 - **Params** — `bgColor`, `anchors`, `theme`, `showText`, `program`
 
 ### typewriter-phrase-keyword-shuffle
+
 - **What** — words type in one-per-onset to spell a phrase, then one keyword cycles typefaces on the beat while everything else holds dead still.
 - **Reach for it when** — a steady grid with a **continuous onset stream** (no desert): a phrase to type out, then a keyword to shuffle. The inverse of `held-message-living-field` (which wants an onset desert).
 - **Params** — `bgColor`, `textColor`, `accentColor`, `lead1`, `lead2`, `lead3`, `keyword`, `periodChar`

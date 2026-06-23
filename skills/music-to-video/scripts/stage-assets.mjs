@@ -25,7 +25,8 @@ function die(m) {
 const fromDir = flag("from", null);
 if (!fromDir) die("missing --from <srcDir>");
 const fromAbs = resolve(fromDir);
-if (!existsSync(fromAbs) || !statSync(fromAbs).isDirectory()) die(`--from is not a directory: ${fromAbs}`);
+if (!existsSync(fromAbs) || !statSync(fromAbs).isDirectory())
+  die(`--from is not a directory: ${fromAbs}`);
 const hyperframesDir = resolve(flag("hyperframes", "."));
 const into = flag("into", "");
 const destDir = join(hyperframesDir, "assets", into);
@@ -50,6 +51,8 @@ for (const name of readdirSync(fromAbs)) {
   landed.push(join("assets", into, basename(name)));
 }
 
-console.log(`✓ stage-assets: ${staged} copied, ${skipped} already present → ${join("assets", into)}/`);
+console.log(
+  `✓ stage-assets: ${staged} copied, ${skipped} already present → ${join("assets", into)}/`,
+);
 for (const l of landed) console.log(`  ${l}`);
 if (staged === 0 && skipped === 0) console.log(`  (no media files found in ${fromAbs})`);

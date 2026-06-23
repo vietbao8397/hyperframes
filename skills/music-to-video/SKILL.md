@@ -16,7 +16,7 @@ Workflow: Step 0 setup → `hyperframes.json` + `assets/bgm.mp3`; Step 1 analyze
 ## Two ideas that shape everything
 
 - **One analyzer, and you trust it.** `analyze-beatgrid.py` is the only beat analyzer — never re-measure beats with another tool or by ear. Its energy / density / rolls / onsets / silences are always reliable. Its `bpm` and `beats_sec` are reliable **only when the music is genuinely rhythmic**; on calm music the grid is a metronome the tracker imposed, so pace by phrases and energy instead and never hard-cut to it. Deciding which case you're in is each frame's `pacing` (Step 2).
-- **One frame = one file; groups live inside.** Step 2 cuts the track into **frames**, and each frame becomes one composition file `compositions/frames/NN-<frame_id>.html`, built by one frame-worker. A frame can subdivide into **groups** (each a template or a motion-primitives combo). Extra density goes *inside* a group, so **frame count tracks distinct treatments, not beats** — a fast track does not blow up the number of sub-agents.
+- **One frame = one file; groups live inside.** Step 2 cuts the track into **frames**, and each frame becomes one composition file `compositions/frames/NN-<frame_id>.html`, built by one frame-worker. A frame can subdivide into **groups** (each a template or a motion-primitives combo). Extra density goes _inside_ a group, so **frame count tracks distinct treatments, not beats** — a fast track does not blow up the number of sub-agents.
 
 ---
 
@@ -166,16 +166,16 @@ Inspect at `t=0`, each frame start, the strongest DROP / SURGE, every `hard_stop
 
 **Scripts** under `scripts/`: `analyze-beatgrid.py` (the one analyzer), `validate-plan.mjs` (plan check), `assemble-index.mjs` (index assembly), `stage-assets.mjs` (stage user media), `lib/storyboard.mjs` (vendored parser). Everything else is the `hyperframes` CLI.
 
-| Read                                                                                       | When                                                  |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
-| [`references/frame-skeleton.md`](references/frame-skeleton.md)                             | Step 2: read the music, lay out the frames, set pacing |
+| Read                                                                                                           | When                                                    |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| [`references/frame-skeleton.md`](references/frame-skeleton.md)                                                 | Step 2: read the music, lay out the frames, set pacing  |
 | [`references/planning.md`](references/planning.md) · [`storyboard-format.md`](references/storyboard-format.md) | Step 3: pick the brand, fill each frame, write the plan |
-| [`references/template-catalog.md`](references/template-catalog.md)                         | Step 3: pick a template per group                     |
-| [`references/motion-primitive-catalog.md`](references/motion-primitive-catalog.md)         | Step 3/4: L0 recipes for free-compose                 |
-| [`references/montage.md`](references/montage.md)                                           | Step 3/4: asset treatments (beat-cut / ken-burns)     |
-| [`sub-agents/frame-worker.md`](sub-agents/frame-worker.md)                                 | Step 4: dispatch + build one frame                    |
-| `../hyperframes-core/references/subagent-dispatch.md`                                      | Step 4: dispatch sub-agents safely                    |
-| `../hyperframes-creative/references/design-spec.md`                                        | Step 3: pick the preset (the brand)                   |
+| [`references/template-catalog.md`](references/template-catalog.md)                                             | Step 3: pick a template per group                       |
+| [`references/motion-primitive-catalog.md`](references/motion-primitive-catalog.md)                             | Step 3/4: L0 recipes for free-compose                   |
+| [`references/montage.md`](references/montage.md)                                                               | Step 3/4: asset treatments (beat-cut / ken-burns)       |
+| [`sub-agents/frame-worker.md`](sub-agents/frame-worker.md)                                                     | Step 4: dispatch + build one frame                      |
+| `../hyperframes-core/references/subagent-dispatch.md`                                                          | Step 4: dispatch sub-agents safely                      |
+| `../hyperframes-creative/references/design-spec.md`                                                            | Step 3: pick the preset (the brand)                     |
 
 ## Directory layout
 

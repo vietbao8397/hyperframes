@@ -51,19 +51,23 @@ frame is usually ONE group whose template absorbs the density internally (a meta
 ## Step C — per group, pick a treatment (exactly one of three)
 
 ### A. Match a template
+
 Read [`template-catalog.md`](template-catalog.md). Match the group's `feel` + `mood` + `pacing`
 to a template's **Reach for it when**; take the closest fit. Then bind it:
+
 - Fill `params` (keys from the catalog entry) — your copy into text slots, palette from the brand spine, `duration` = the group's span length.
 - Fill `role_bindings` with this group's **real anchor seconds** read from `audiomap.json` over its span (not example times).
 - If the template's natural stop and the group's span end disagree, snap to the nearest anchor.
 
 ### B. Free-compose (no template fits)
+
 Write a `free_design` — one visual thesis from [`motion-primitive-catalog.md`](motion-primitive-catalog.md)
 (a dominant system + the named L0 primitives + a density topology) + `anchors` (the real
 beat / onset seconds the moves ride). Free-compose is a **first-class** choice, written as
 carefully as a matched group — never a failure.
 
 ### C. Asset treatment (only when the user supplied assets and they fit)
+
 Make it an `asset` group ([`montage.md`](montage.md)). **Obey `pacing`:** on a `beat_cut`
 frame use `beat_cut` (one clip per anchor) or `bg_under_text`; on a `phrase_flow` frame use
 `ken_burns` or a slow crossfade — **never** per-onset hard cuts. Assets are additive: if none

@@ -61,7 +61,9 @@ if (G.canvas) {
     if (Number.isFinite(c.w)) WIDTH = c.w;
     if (Number.isFinite(c.h)) HEIGHT = c.h;
   } catch {
-    anomalies.push(`could not JSON.parse canvas frontmatter: ${G.canvas} — using ${WIDTH}×${HEIGHT}`);
+    anomalies.push(
+      `could not JSON.parse canvas frontmatter: ${G.canvas} — using ${WIDTH}×${HEIGHT}`,
+    );
   }
 }
 
@@ -88,7 +90,9 @@ for (const f of manifest.frames) {
   const compId = basename(f.src).replace(/\.html?$/i, "");
   const inner = readFileSync(compAbs, "utf8");
   if (!inner.trim() || !/<\w/.test(inner))
-    die(`${label}: ${f.src} is empty/blank — the frame-worker wrote a partial file. Re-dispatch it.`);
+    die(
+      `${label}: ${f.src} is empty/blank — the frame-worker wrote a partial file. Re-dispatch it.`,
+    );
   if (
     !inner.includes(`data-composition-id="${compId}"`) &&
     !inner.includes(`data-composition-id='${compId}'`)

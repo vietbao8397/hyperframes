@@ -141,8 +141,14 @@ Contrast with **standalone** compositions, which put the root directly in `<body
 <!-- ❌ WRONG — class on the root, stylesheet keyed off it -->
 <template>
   <style>
-    .frame { position: absolute; inset: 0; background: #faf9f5; }
-    .frame .title { font-size: 120px; }
+    .frame {
+      position: absolute;
+      inset: 0;
+      background: #faf9f5;
+    }
+    .frame .title {
+      font-size: 120px;
+    }
   </style>
   <div id="root" class="frame" data-composition-id="03-scene" ...>
     <div class="title">…</div>
@@ -152,8 +158,14 @@ Contrast with **standalone** compositions, which put the root directly in `<body
 <!-- ✅ RIGHT — root styled by #root, descendants by plain selectors -->
 <template>
   <style>
-    #root { position: absolute; inset: 0; background: #faf9f5; }
-    .title { font-size: 120px; }
+    #root {
+      position: absolute;
+      inset: 0;
+      background: #faf9f5;
+    }
+    .title {
+      font-size: 120px;
+    }
   </style>
   <div id="root" data-composition-id="03-scene" ...>
     <div class="title">…</div>

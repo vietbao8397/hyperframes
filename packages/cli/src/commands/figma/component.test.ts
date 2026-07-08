@@ -74,7 +74,7 @@ describe("runComponentImport", () => {
 
   it("bakes literals and reports unresolved bindings when the index is empty", async () => {
     const { out, html } = await importHero();
-    expect(html).toContain("background: #0066FF");
+    expect(html).toContain("background-color: #0066FF");
     expect(html).not.toContain("var(");
     expect(out.unresolved).toHaveLength(1);
     expect(out.unresolved[0]?.figmaId).toBe("VariableID:1:1");

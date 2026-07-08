@@ -228,7 +228,11 @@ function decorationCss(node: FigmaNodeDocument, ctx: RenderContext): string[] {
     if (bg !== null) styles.push(`color: ${bg}`);
     textCss(node, styles);
   } else if (bg !== null) {
-    styles.push(`background: ${bg}`);
+    // background-color (longhand) for solid fills, never the shorthand: GSAP
+    // backgroundColor tweens can't read a var() through the shorthand (its
+    // pending-substitution longhands serialize empty), so .from/.to on an
+    // imported node would settle on transparent instead of the token color.
+    styles.push(bg.includes("gradient(") ? `background: ${bg}` : `background-color: ${bg}`);
   }
   shapeCss(node, styles);
   effectsCss(node, styles);

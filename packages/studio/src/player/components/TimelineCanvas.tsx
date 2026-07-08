@@ -120,7 +120,7 @@ export const TimelineCanvas = memo(function TimelineCanvas({
   selectedElementId,
   hoveredClip,
   draggedClip,
-  resizingClip: _resizingClip,
+  resizingClip,
   blockedClipRef,
   suppressClickRef,
   scrollRef,
@@ -158,6 +158,11 @@ export const TimelineCanvas = memo(function TimelineCanvas({
     onRazorSplitAll,
   } = useTimelineEditContextOptional();
   const beatDragging = usePlayerStore((s) => s.beatDragging);
+  const activeSnapGuideTime = draggedClip?.started
+    ? (draggedClip.snapBeatTime ?? draggedClip.snapGuideTime)
+    : resizingClip?.started
+      ? resizingClip.snapGuideTime
+      : null;
   const draggedElement = draggedClip?.element ?? null;
   const activeDraggedElement =
     draggedClip?.started === true && draggedElement
@@ -312,12 +317,12 @@ export const TimelineCanvas = memo(function TimelineCanvas({
                     <TimelineDropInsertionLine edge={dropIndicator.edge} accentColor={ts.accent} />
                   )}
                   {/* Faint beat lines in every track's background (behind the clips);
-                    the active move-snap target is highlighted. */}
+                    the active snap target is highlighted. */}
                   <BeatBackgroundLines
                     beatTimes={beatAnalysis?.beatTimes}
                     beatStrengths={beatAnalysis?.beatStrengths}
                     pps={pps}
-                    highlightTime={draggedClip?.started ? draggedClip.snapBeatTime : null}
+                    highlightTime={activeSnapGuideTime}
                   />
                   {/* Beat dots on the active track (the one holding the selection),
                     falling back to the music track when nothing is selected. */}
@@ -394,6 +399,8 @@ export const TimelineCanvas = memo(function TimelineCanvas({
                               previewStart: el.start,
                               previewDuration: el.duration,
                               previewPlaybackStart: el.playbackStart,
+                              snapGuideTime: null,
+                              snapGuideKind: null,
                               started: false,
                             });
                           }}
@@ -452,6 +459,8 @@ export const TimelineCanvas = memo(function TimelineCanvas({
                                 previewLayerIndex: rowIndex,
                                 previewStackingReorder: null,
                                 snapBeatTime: null,
+                                snapGuideTime: null,
+                                snapGuideKind: null,
                                 started: false,
                               });
                               syncClipDragAutoScroll(e.clientX, e.clientY);

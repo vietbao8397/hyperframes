@@ -102,6 +102,8 @@ function renderDragHarness(elements: TimelineElement[]) {
           previewLayerIndex: layerIndex,
           previewStackingReorder: null,
           snapBeatTime: null,
+          snapGuideTime: null,
+          snapGuideKind: null,
           started: false,
         });
       });
@@ -115,6 +117,8 @@ function renderDragHarness(elements: TimelineElement[]) {
           previewStart: element.start,
           previewDuration: element.duration,
           previewPlaybackStart: element.playbackStart,
+          snapGuideTime: null,
+          snapGuideKind: null,
           started: false,
         });
       });

@@ -29,6 +29,7 @@ function isHTMLElement(element: Element | null): element is HTMLElement {
  * be resolved. Extracted from StudioApp's timeline hook to keep it under the
  * studio 600-LOC cap.
  */
+// fallow-ignore-next-line complexity
 export function applyTimelineStackingReorder(input: {
   element: TimelineElement;
   targetTrack: number;
@@ -44,9 +45,19 @@ export function applyTimelineStackingReorder(input: {
   const intent = input.stackingReorder ?? null;
   if (intent == null || intent.zIndexChanges.length === 0) return;
 
+  // Resolve each change's live element from the change's OWN locator (the intent
+  // is self-contained), falling back to the top-level element list. Sub-comp
+  // children aren't in `timelineElements`, so a list-only lookup would miss them.
   const siblingByKey = new Map(
     input.timelineElements.map((el) => [getTimelineElementIdentity(el), el]),
   );
+  const doc = input.iframe?.contentDocument ?? null;
+  const findLive = (domId?: string, selector?: string, selectorIndex?: number): Element | null => {
+    if (!doc) return null;
+    if (domId) return doc.getElementById(domId);
+    if (selector) return doc.querySelectorAll(selector)[selectorIndex ?? 0] ?? null;
+    return null;
+  };
   const commitEntries: Array<{
     element: HTMLElement;
     zIndex: number;
@@ -59,18 +70,20 @@ export function applyTimelineStackingReorder(input: {
 
   for (const change of intent.zIndexChanges) {
     const sibling = siblingByKey.get(change.key);
-    if (!sibling) return;
-    const element = findTimelineElementInIframe(input.iframe, sibling);
+    const domId = change.domId ?? sibling?.domId;
+    const selector = change.selector ?? sibling?.selector;
+    const selectorIndex = change.selectorIndex ?? sibling?.selectorIndex;
+    const element = findLive(domId, selector, selectorIndex);
     if (!isHTMLElement(element)) return;
     if (getElementZIndex(element) === change.zIndex) continue;
     commitEntries.push({
       element,
       zIndex: change.zIndex,
-      id: sibling.domId ?? sibling.id,
-      selector: sibling.selector,
-      selectorIndex: sibling.selectorIndex,
-      sourceFile: sibling.sourceFile || input.activeCompPath || "index.html",
-      key: getTimelineElementIdentity(sibling),
+      id: domId ?? sibling?.id ?? change.key,
+      selector,
+      selectorIndex,
+      sourceFile: change.sourceFile ?? sibling?.sourceFile ?? input.activeCompPath ?? "index.html",
+      key: change.key,
     });
   }
 

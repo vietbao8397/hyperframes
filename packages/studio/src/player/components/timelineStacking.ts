@@ -9,6 +9,13 @@ export interface TimelineStackingElement {
   stackingContextId?: string | null;
   parentCompositionId?: string | null;
   compositionAncestors?: string[];
+  // Locator for resolving the live element at commit time (sub-comp children
+  // aren't in the top-level element list, so the reorder intent must be
+  // self-contained rather than re-looked-up by identity).
+  domId?: string;
+  selector?: string;
+  selectorIndex?: number;
+  sourceFile?: string;
 }
 
 export interface TimelineStackingOrderItem {
@@ -29,6 +36,10 @@ export type TimelineLayerDropPlacement =
 export interface TimelineStackingZIndexChange {
   key: string;
   zIndex: number;
+  domId?: string;
+  selector?: string;
+  selectorIndex?: number;
+  sourceFile?: string;
 }
 
 export interface TimelineStackingReorderIntent {

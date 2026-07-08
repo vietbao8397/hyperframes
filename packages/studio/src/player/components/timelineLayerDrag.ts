@@ -27,11 +27,18 @@ function layerContainsElement(layer: StackingTimelineLayer, key: string): boolea
 
 function addElementChange(
   changes: TimelineStackingZIndexChange[],
-  key: string,
-  currentZIndex: number,
+  element: TimelineStackingElement,
   zIndex: number,
 ): void {
-  if (currentZIndex !== zIndex) changes.push({ key, zIndex });
+  if ((element.zIndex ?? 0) === zIndex) return;
+  changes.push({
+    key: getTimelineElementIdentity(element),
+    zIndex,
+    domId: element.domId,
+    selector: element.selector,
+    selectorIndex: element.selectorIndex,
+    sourceFile: element.sourceFile,
+  });
 }
 
 function addLayerChanges(
@@ -45,7 +52,7 @@ function addLayerChanges(
     const key = getTimelineElementIdentity(element);
     if (key === excludedKey) continue;
     const before = changes.length;
-    addElementChange(changes, key, element.zIndex ?? 0, zIndex);
+    addElementChange(changes, element, zIndex);
     if (changes.length > before) count += 1;
   }
   return count;
@@ -70,12 +77,7 @@ function resolvePlacementZIndexChanges(input: {
   targetZIndex: number;
 }): TimelineStackingZIndexChange[] {
   const changes: TimelineStackingZIndexChange[] = [];
-  addElementChange(
-    changes,
-    getTimelineElementIdentity(input.element),
-    input.element.zIndex ?? 0,
-    input.targetZIndex,
-  );
+  addElementChange(changes, input.element, input.targetZIndex);
   return changes;
 }
 

@@ -1,6 +1,10 @@
 import { resolveStackingContextKey } from "../lib/layerOrdering";
 import { getTimelineElementIdentity } from "../lib/timelineElementHelpers";
-import type { StackingTimelineLayer, TimelineLayerId } from "./timelineTrackOrder";
+import {
+  timelineElementsOverlap,
+  type StackingTimelineLayer,
+  type TimelineLayerId,
+} from "./timelineTrackOrder";
 import {
   toStackingOrderItem,
   type TimelineLayerDropPlacement,
@@ -23,6 +27,18 @@ function isAudioElement(element: TimelineStackingElement): boolean {
 
 function layerContainsElement(layer: StackingTimelineLayer, key: string): boolean {
   return layer.elements.some((element) => getTimelineElementIdentity(element) === key);
+}
+
+function layerConflictsWithElement(
+  layer: StackingTimelineLayer,
+  element: TimelineStackingElement,
+  draggedKey: string,
+): boolean {
+  return layer.elements.some(
+    (candidate) =>
+      getTimelineElementIdentity(candidate) !== draggedKey &&
+      timelineElementsOverlap(candidate, element),
+  );
 }
 
 function addElementChange(
@@ -161,6 +177,77 @@ function resolveBetweenChanges(input: {
   return pushUp.siblingChanges <= pushDown.siblingChanges ? pushUp.changes : pushDown.changes;
 }
 
+function resolveOntoChanges(input: {
+  element: TimelineStackingElement;
+  layers: readonly StackingTimelineLayer[];
+  layerId: string;
+}): TimelineStackingZIndexChange[] | null {
+  const target = findLayer(input.layers, input.layerId);
+  if (!target) return null;
+  if (layerConflictsWithElement(target, input.element, getTimelineElementIdentity(input.element))) {
+    return null;
+  }
+  return resolvePlacementZIndexChanges({
+    element: input.element,
+    targetZIndex: target.zIndex,
+  });
+}
+
+function resolveEdgeChanges(input: {
+  element: TimelineStackingElement;
+  layers: readonly StackingTimelineLayer[];
+  layerId: string;
+  offset: number;
+}): TimelineStackingZIndexChange[] | null {
+  const target = findLayer(input.layers, input.layerId);
+  if (!target) return null;
+  return resolvePlacementZIndexChanges({
+    element: input.element,
+    targetZIndex: target.zIndex + input.offset,
+  });
+}
+
+function resolvePlacementChanges(input: {
+  element: TimelineStackingElement;
+  layers: readonly StackingTimelineLayer[];
+  placement: TimelineLayerDropPlacement;
+}): TimelineStackingZIndexChange[] | null {
+  switch (input.placement.type) {
+    case "onto":
+      return resolveOntoChanges({
+        element: input.element,
+        layers: input.layers,
+        layerId: input.placement.layerId,
+      });
+    case "above":
+      return resolveEdgeChanges({
+        element: input.element,
+        layers: input.layers,
+        layerId: input.placement.layerId,
+        offset: 1,
+      });
+    case "below":
+      return resolveEdgeChanges({
+        element: input.element,
+        layers: input.layers,
+        layerId: input.placement.layerId,
+        offset: -1,
+      });
+    case "between": {
+      const beforeLayer = findLayer(input.layers, input.placement.beforeLayerId);
+      const afterLayer = findLayer(input.layers, input.placement.afterLayerId);
+      return beforeLayer && afterLayer
+        ? resolveBetweenChanges({
+            element: input.element,
+            layers: input.layers,
+            beforeLayer,
+            afterLayer,
+          })
+        : null;
+    }
+  }
+}
+
 export function resolveTimelineLayerZIndexChanges(input: {
   element: TimelineStackingElement;
   layers: readonly StackingTimelineLayer[];
@@ -169,37 +256,13 @@ export function resolveTimelineLayerZIndexChanges(input: {
   if (isAudioElement(input.element)) return null;
   const contextKey = resolveStackingContextKey(toStackingOrderItem(input.element));
   const layers = getContextLayers(input.layers, contextKey);
-  let changes: TimelineStackingZIndexChange[] = [];
+  const changes = resolvePlacementChanges({
+    element: input.element,
+    layers,
+    placement: input.placement,
+  });
 
-  if (input.placement.type === "onto") {
-    const target = findLayer(layers, input.placement.layerId);
-    if (!target) return null;
-    changes = resolvePlacementZIndexChanges({
-      element: input.element,
-      targetZIndex: target.zIndex,
-    });
-  } else if (input.placement.type === "above") {
-    const target = findLayer(layers, input.placement.layerId);
-    if (!target) return null;
-    changes = resolvePlacementZIndexChanges({
-      element: input.element,
-      targetZIndex: target.zIndex + 1,
-    });
-  } else if (input.placement.type === "below") {
-    const target = findLayer(layers, input.placement.layerId);
-    if (!target) return null;
-    changes = resolvePlacementZIndexChanges({
-      element: input.element,
-      targetZIndex: target.zIndex - 1,
-    });
-  } else {
-    const beforeLayer = findLayer(layers, input.placement.beforeLayerId);
-    const afterLayer = findLayer(layers, input.placement.afterLayerId);
-    if (!beforeLayer || !afterLayer) return null;
-    changes = resolveBetweenChanges({ element: input.element, layers, beforeLayer, afterLayer });
-  }
-
-  return changes.length > 0
+  return changes && changes.length > 0
     ? { contextKey, placement: input.placement, zIndexChanges: changes }
     : null;
 }
@@ -231,6 +294,111 @@ function resolveDragPlacement(
   return before && after
     ? { type: "between", beforeLayerId: before.id, afterLayerId: after.id }
     : null;
+}
+
+function buildInsertionPlacement(
+  layers: readonly StackingTimelineLayer[],
+  insertionIndex: number,
+): TimelineLayerDropPlacement | null {
+  const first = layers[0];
+  const last = layers[layers.length - 1];
+  if (!first || !last) return null;
+  if (insertionIndex <= 0) return { type: "above", layerId: first.id };
+  if (insertionIndex >= layers.length) return { type: "below", layerId: last.id };
+  const before = layers[insertionIndex - 1];
+  const after = layers[insertionIndex];
+  return before && after
+    ? { type: "between", beforeLayerId: before.id, afterLayerId: after.id }
+    : null;
+}
+
+interface ValidPlacementCandidate {
+  placement: TimelineLayerDropPlacement;
+  position: number;
+  kind: "onto" | "insert";
+}
+
+function comparePlacementCandidates(input: {
+  targetPosition: number;
+  currentIndex: number;
+  a: ValidPlacementCandidate;
+  b: ValidPlacementCandidate;
+}): number {
+  const distanceA = Math.abs(input.a.position - input.targetPosition);
+  const distanceB = Math.abs(input.b.position - input.targetPosition);
+  if (distanceA !== distanceB) return distanceA - distanceB;
+
+  const direction = Math.sign(input.targetPosition - input.currentIndex);
+  if (direction !== 0) {
+    const biasA =
+      direction < 0
+        ? input.a.position <= input.targetPosition
+        : input.a.position >= input.targetPosition;
+    const biasB =
+      direction < 0
+        ? input.b.position <= input.targetPosition
+        : input.b.position >= input.targetPosition;
+    if (biasA !== biasB) return biasA ? -1 : 1;
+  }
+
+  if (input.a.kind !== input.b.kind) return input.a.kind === "onto" ? -1 : 1;
+  return input.a.position - input.b.position;
+}
+
+function resolveNearestValidPlacement(input: {
+  layers: readonly StackingTimelineLayer[];
+  element: TimelineStackingElement;
+  draggedKey: string;
+  targetPosition: number;
+  currentIndex: number;
+}): TimelineLayerDropPlacement | null {
+  const candidates: ValidPlacementCandidate[] = [];
+
+  input.layers.forEach((layer, index) => {
+    if (!layerConflictsWithElement(layer, input.element, input.draggedKey)) {
+      candidates.push({
+        placement: { type: "onto", layerId: layer.id },
+        position: index,
+        kind: "onto",
+      });
+    }
+  });
+
+  for (let insertionIndex = 0; insertionIndex <= input.layers.length; insertionIndex += 1) {
+    const placement = buildInsertionPlacement(input.layers, insertionIndex);
+    if (!placement) continue;
+    candidates.push({
+      placement,
+      position: insertionIndex - 0.5,
+      kind: "insert",
+    });
+  }
+
+  return (
+    candidates.sort((a, b) =>
+      comparePlacementCandidates({
+        targetPosition: input.targetPosition,
+        currentIndex: input.currentIndex,
+        a,
+        b,
+      }),
+    )[0]?.placement ?? null
+  );
+}
+
+function resolveLaneAwareDragPlacement(input: {
+  layers: readonly StackingTimelineLayer[];
+  element: TimelineStackingElement;
+  draggedKey: string;
+  placement: TimelineLayerDropPlacement;
+  targetPosition: number;
+  currentIndex: number;
+}): TimelineLayerDropPlacement | null {
+  if (input.placement.type !== "onto") return input.placement;
+  const target = findLayer(input.layers, input.placement.layerId);
+  if (!target) return null;
+  if (!layerConflictsWithElement(target, input.element, input.draggedKey)) return input.placement;
+  return resolveNearestValidPlacement(input);
 }
 
 function getPreviewLayerId(
@@ -275,7 +443,17 @@ export function resolveTimelineLayerStackingMove(input: {
   const currentIndex = contextLayers.findIndex((layer) => layerContainsElement(layer, draggedKey));
   if (currentIndex < 0) return null;
 
-  const placement = resolveDragPlacement(contextLayers, currentIndex + input.trackDeltaRaw);
+  const targetPosition = currentIndex + input.trackDeltaRaw;
+  const rawPlacement = resolveDragPlacement(contextLayers, targetPosition);
+  if (!rawPlacement) return null;
+  const placement = resolveLaneAwareDragPlacement({
+    layers: contextLayers,
+    element: input.element,
+    draggedKey,
+    placement: rawPlacement,
+    targetPosition,
+    currentIndex,
+  });
   if (!placement) return null;
   return {
     previewLayerId: getPreviewLayerId(draggedKey, placement),

@@ -110,10 +110,15 @@ export function resolveTimelineMove(
   // Stacking mode: vertical movement writes z-index only. The authored
   // data-track-index is preserved even when the pointer crosses rows.
   if (input.stackingElement) {
+    const stackingElement = {
+      ...input.stackingElement,
+      start: nextStart,
+      duration: input.duration,
+    };
     const layerMove =
       input.timelineLayers && input.layerOrder
         ? resolveTimelineLayerStackingMove({
-            element: input.stackingElement,
+            element: stackingElement,
             layers: input.timelineLayers,
             layerOrder: input.layerOrder,
             trackDeltaRaw,

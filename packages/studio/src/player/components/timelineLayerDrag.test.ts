@@ -1,14 +1,23 @@
 import { describe, expect, it } from "vitest";
 import type { TimelineElement } from "../store/playerStore";
 import type { StackingTimelineLayer } from "./timelineTrackOrder";
-import { resolveTimelineLayerZIndexChanges } from "./timelineLayerDrag";
+import {
+  resolveTimelineLayerStackingMove,
+  resolveTimelineLayerZIndexChanges,
+} from "./timelineLayerDrag";
 
-function element(input: { id: string; zIndex: number; tag?: string }): TimelineElement {
+function element(input: {
+  id: string;
+  zIndex: number;
+  tag?: string;
+  start?: number;
+  duration?: number;
+}): TimelineElement {
   return {
     id: input.id,
     tag: input.tag ?? "div",
-    start: 0,
-    duration: 1,
+    start: input.start ?? 0,
+    duration: input.duration ?? 1,
     track: 0,
     zIndex: input.zIndex,
     hasExplicitZIndex: true,
@@ -18,28 +27,46 @@ function element(input: { id: string; zIndex: number; tag?: string }): TimelineE
   };
 }
 
-function layer(id: string, zIndex: number): StackingTimelineLayer {
+function layer(
+  id: string,
+  zIndex: number,
+  elements: TimelineElement[] = [element({ id, zIndex })],
+): StackingTimelineLayer {
   return {
     id,
     kind: "visual",
     contextKey: "root",
     zIndex,
     placementTrack: 0,
-    elements: [element({ id, zIndex })],
+    elements,
   };
 }
 
 describe("resolveTimelineLayerZIndexChanges", () => {
-  it("joins an existing layer by assigning the dragged clip that layer's z-index", () => {
-    const dragged = element({ id: "dragged", zIndex: 1 });
+  it("joins an existing lane by assigning the dragged clip that lane's z-index", () => {
+    const dragged = element({ id: "dragged", zIndex: 1, start: 2, duration: 1 });
+    const front = element({ id: "front", zIndex: 10, start: 0, duration: 1 });
 
     expect(
       resolveTimelineLayerZIndexChanges({
         element: dragged,
-        layers: [layer("front", 10), layer("back", 1)],
+        layers: [layer("front", 10, [front]), layer("back", 1)],
         placement: { type: "onto", layerId: "front" },
       })?.zIndexChanges,
     ).toEqual([{ key: "dragged", zIndex: 10 }]);
+  });
+
+  it("rejects an onto-lane join when the dragged clip would overlap that lane", () => {
+    const dragged = element({ id: "dragged", zIndex: 1, start: 0.5, duration: 1 });
+    const front = element({ id: "front", zIndex: 10, start: 0, duration: 1 });
+
+    expect(
+      resolveTimelineLayerZIndexChanges({
+        element: dragged,
+        layers: [layer("front", 10, [front]), layer("back", 1)],
+        placement: { type: "onto", layerId: "front" },
+      }),
+    ).toBeNull();
   });
 
   it("interpolates a new integer z-index strictly between neighboring layers", () => {
@@ -98,5 +125,30 @@ describe("resolveTimelineLayerZIndexChanges", () => {
         placement: { type: "onto", layerId: "front" },
       }),
     ).toBeNull();
+  });
+});
+
+describe("resolveTimelineLayerStackingMove", () => {
+  it("snaps a blocked onto-lane drop to the nearest new lane instead of committing the conflict", () => {
+    const front = element({ id: "front", zIndex: 10, start: 0, duration: 2 });
+    const dragged = element({ id: "dragged", zIndex: 1, start: 0.5, duration: 1 });
+    const layers = [layer("front", 10, [front]), layer("dragged", 1, [dragged])];
+
+    expect(
+      resolveTimelineLayerStackingMove({
+        element: dragged,
+        layers,
+        layerOrder: layers.map((item) => item.id),
+        trackDeltaRaw: -1,
+      }),
+    ).toEqual({
+      previewLayerId: "preview:dragged:above:front",
+      previewLayerIndex: 0,
+      stackingReorder: {
+        contextKey: "root",
+        placement: { type: "above", layerId: "front" },
+        zIndexChanges: [{ key: "dragged", zIndex: 11 }],
+      },
+    });
   });
 });

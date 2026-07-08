@@ -4,6 +4,8 @@ export interface TimelineStackingElement {
   id: string;
   key?: string;
   tag?: string;
+  start: number;
+  duration: number;
   track: number;
   zIndex?: number;
   stackingContextId?: string | null;

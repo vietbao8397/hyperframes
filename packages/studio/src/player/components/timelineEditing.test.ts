@@ -158,7 +158,7 @@ describe("resolveTimelineMove", () => {
     ).toEqual({ start: 2, track: 2 });
   });
 
-  it("resolves vertical stacking movement as a layer join without changing data-track-index", () => {
+  it("snaps conflicting vertical stacking movement to a new lane without changing data-track-index", () => {
     const stackingElements = [
       {
         id: "root-front",
@@ -209,12 +209,12 @@ describe("resolveTimelineMove", () => {
     expect(result).toEqual({
       start: 0,
       track: 1,
-      previewLayerId: layers[0]!.id,
+      previewLayerId: `preview:root-back:above:${layers[0]!.id}`,
       previewLayerIndex: 0,
       stackingReorder: {
         contextKey: "root",
-        placement: { type: "onto", layerId: layers[0]!.id },
-        zIndexChanges: [{ key: "root-back", zIndex: 2 }],
+        placement: { type: "above", layerId: layers[0]!.id },
+        zIndexChanges: [{ key: "root-back", zIndex: 3 }],
       },
     });
   });

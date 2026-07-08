@@ -24,13 +24,10 @@ type TimelineLayerOrderItem = TimelineStackingOrderItem & {
   start: number;
   duration: number;
   index: number;
-  hasExplicitZIndex: boolean;
   element: TimelineElement;
 };
 
-type BuildLayer = StackingTimelineLayer & {
-  hasExplicitZIndex: boolean;
-};
+type BuildLayer = Omit<StackingTimelineLayer, "id">;
 
 function toTimelineLayerOrderItem(element: TimelineElement, index: number): TimelineLayerOrderItem {
   return {
@@ -38,12 +35,11 @@ function toTimelineLayerOrderItem(element: TimelineElement, index: number): Time
     start: element.start,
     duration: element.duration,
     index,
-    hasExplicitZIndex: element.hasExplicitZIndex === true,
     element,
   };
 }
 
-function timelineElementsOverlap(
+export function timelineElementsOverlap(
   a: Pick<TimelineElement, "start" | "duration">,
   b: Pick<TimelineElement, "start" | "duration">,
 ): boolean {
@@ -52,18 +48,24 @@ function timelineElementsOverlap(
 
 function compareLayerItems(a: TimelineLayerOrderItem, b: TimelineLayerOrderItem): number {
   if (a.zIndex !== b.zIndex) return b.zIndex - a.zIndex;
-  if (a.hasExplicitZIndex && b.hasExplicitZIndex && a.track !== b.track) {
-    return a.track - b.track;
-  }
   return a.index - b.index;
 }
 
-function buildLayerId(
+function buildElementLayerId(
   prefix: string,
   contextKey: string,
   element: TimelineElement,
 ): TimelineLayerId {
   return `${prefix}:${contextKey}:${getTimelineElementIdentity(element)}`;
+}
+
+function buildLaneId(
+  prefix: string,
+  contextKey: string,
+  elements: TimelineElement[],
+): TimelineLayerId {
+  const memberKey = elements.map(getTimelineElementIdentity).sort().join("|");
+  return `${prefix}:${contextKey}:${memberKey}`;
 }
 
 function getOrderedContextKeys(items: readonly TimelineLayerOrderItem[]): string[] {
@@ -77,12 +79,14 @@ function getOrderedContextKeys(items: readonly TimelineLayerOrderItem[]): string
 
 function canJoinLayer(layer: BuildLayer, item: TimelineLayerOrderItem): boolean {
   return (
-    layer.hasExplicitZIndex &&
-    item.hasExplicitZIndex &&
     layer.contextKey === resolveStackingContextKey(item) &&
-    layer.zIndex === item.zIndex &&
     layer.elements.every((element) => !timelineElementsOverlap(element, item.element))
   );
+}
+
+function compareElementsByStart(a: TimelineElement, b: TimelineElement): number {
+  if (a.start !== b.start) return a.start - b.start;
+  return getTimelineElementIdentity(a).localeCompare(getTimelineElementIdentity(b));
 }
 
 function buildVisualLayerRows(items: readonly TimelineLayerOrderItem[]): StackingTimelineLayer[] {
@@ -99,42 +103,37 @@ function buildVisualLayerRows(items: readonly TimelineLayerOrderItem[]): Stackin
     const contextRows: BuildLayer[] = [];
     const contextItems = [...(byContext.get(contextKey) ?? [])].sort(compareLayerItems);
     for (const item of contextItems) {
-      if (!item.hasExplicitZIndex) {
-        contextRows.push({
-          id: buildLayerId("auto", contextKey, item.element),
-          kind: "visual",
-          contextKey,
-          zIndex: item.zIndex,
-          placementTrack: item.element.track,
-          elements: [item.element],
-          hasExplicitZIndex: false,
-        });
-        continue;
-      }
-
       const existing = contextRows.find((row) => canJoinLayer(row, item));
       if (existing) {
         existing.elements.push(item.element);
+        existing.zIndex = Math.max(existing.zIndex, item.zIndex);
         continue;
       }
       contextRows.push({
-        id: buildLayerId("layer", contextKey, item.element),
         kind: "visual",
         contextKey,
         zIndex: item.zIndex,
         placementTrack: item.element.track,
         elements: [item.element],
-        hasExplicitZIndex: true,
       });
     }
-    rows.push(...contextRows);
+    rows.push(
+      ...contextRows.map((row) => {
+        const elements = [...row.elements].sort(compareElementsByStart);
+        return {
+          ...row,
+          id: buildLaneId("lane", contextKey, elements),
+          elements,
+        };
+      }),
+    );
   }
   return rows;
 }
 
 function buildAudioLayerRows(items: readonly TimelineLayerOrderItem[]): StackingTimelineLayer[] {
   return items.map((item) => ({
-    id: buildLayerId("audio", resolveStackingContextKey(item), item.element),
+    id: buildElementLayerId("audio", resolveStackingContextKey(item), item.element),
     kind: "audio",
     contextKey: resolveStackingContextKey(item),
     zIndex: item.zIndex,

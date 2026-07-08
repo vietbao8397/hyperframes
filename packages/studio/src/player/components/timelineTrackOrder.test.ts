@@ -34,31 +34,41 @@ function rowIds(rows: readonly { elements: readonly TimelineElement[] }[]): stri
 }
 
 describe("buildStackingTimelineLayers", () => {
-  it("merges explicit same-z clips in one context when they do not overlap in time", () => {
+  it("packs non-overlapping clips into the same lane even when their z-index differs", () => {
     const result = buildStackingTimelineLayers([
-      rowElement({ id: "a", zIndex: 5, start: 0, duration: 1 }),
-      rowElement({ id: "b", zIndex: 5, start: 1, duration: 1 }),
+      rowElement({ id: "back", zIndex: 1, start: 0, duration: 1 }),
+      rowElement({ id: "front", zIndex: 10, start: 1, duration: 1 }),
+    ]);
+
+    expect(rowIds(result.visualLayers)).toEqual([["back", "front"]]);
+    expect(result.visualLayers[0]?.zIndex).toBe(10);
+  });
+
+  it("splits clips into separate lanes when they overlap in time", () => {
+    const result = buildStackingTimelineLayers([
+      rowElement({ id: "front", zIndex: 10, start: 0, duration: 2 }),
+      rowElement({ id: "back", zIndex: 1, start: 1, duration: 2 }),
+    ]);
+
+    expect(rowIds(result.visualLayers)).toEqual([["front"], ["back"]]);
+  });
+
+  it("uses DOM order to break stacking ties before lane packing", () => {
+    const result = buildStackingTimelineLayers([
+      rowElement({ id: "first", track: 2, zIndex: 5, start: 0, duration: 2 }),
+      rowElement({ id: "second", track: 0, zIndex: 5, start: 1, duration: 2 }),
+    ]);
+
+    expect(rowIds(result.visualLayers)).toEqual([["first"], ["second"]]);
+  });
+
+  it("packs auto-z clips by time instead of forcing one row per clip", () => {
+    const result = buildStackingTimelineLayers([
+      rowElement({ id: "a", zIndex: 0, hasExplicitZIndex: false, start: 0, duration: 1 }),
+      rowElement({ id: "b", zIndex: 0, hasExplicitZIndex: false, start: 1, duration: 1 }),
     ]);
 
     expect(rowIds(result.visualLayers)).toEqual([["a", "b"]]);
-  });
-
-  it("splits explicit same-z clips in one context when they overlap in time", () => {
-    const result = buildStackingTimelineLayers([
-      rowElement({ id: "a", track: 2, zIndex: 5, start: 0, duration: 2 }),
-      rowElement({ id: "b", track: 0, zIndex: 5, start: 1, duration: 2 }),
-    ]);
-
-    expect(rowIds(result.visualLayers)).toEqual([["b"], ["a"]]);
-  });
-
-  it("keeps auto-z clips in their own rows even when their computed z-index ties", () => {
-    const result = buildStackingTimelineLayers([
-      rowElement({ id: "a", zIndex: 0, hasExplicitZIndex: false }),
-      rowElement({ id: "b", zIndex: 0, hasExplicitZIndex: false }),
-    ]);
-
-    expect(rowIds(result.visualLayers)).toEqual([["a"], ["b"]]);
   });
 
   it("does not merge equal z-index clips across stacking contexts", () => {

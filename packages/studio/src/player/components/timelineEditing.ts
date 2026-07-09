@@ -107,18 +107,16 @@ export function resolveTimelineMove(
     Math.max(0, input.maxStart),
   );
 
-  // Stacking mode: vertical movement writes z-index only. The authored
-  // data-track-index is preserved even when the pointer crosses rows.
+  // Stacking mode: the two axes never fight. Horizontal movement writes time
+  // (nextStart); vertical movement writes z-index. Lane/overlap resolution
+  // uses the clip's authored time span, NOT the dragged start — otherwise a
+  // diagonal drag that drifts the clip out of overlap silently flips the
+  // placement from "restack" to "join lane" and cancels the reorder.
   if (input.stackingElement) {
-    const stackingElement = {
-      ...input.stackingElement,
-      start: nextStart,
-      duration: input.duration,
-    };
     const layerMove =
       input.timelineLayers && input.layerOrder
         ? resolveTimelineLayerStackingMove({
-            element: stackingElement,
+            element: { ...input.stackingElement, duration: input.duration },
             layers: input.timelineLayers,
             layerOrder: input.layerOrder,
             trackDeltaRaw,

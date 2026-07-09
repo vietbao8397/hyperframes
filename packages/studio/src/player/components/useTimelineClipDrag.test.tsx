@@ -202,13 +202,17 @@ describe("useTimelineClipDrag", () => {
     harness.unmount();
   });
 
-  it("uses the preview start when resolving whether a dragged clip can join a lane", async () => {
+  it("resolves lane stacking from the authored time span, independent of horizontal drag", async () => {
     const front = timelineElement({ id: "front", track: 0, zIndex: 3 });
     const back = timelineElement({ id: "back", track: 1, zIndex: 1 });
     back.start = 0;
     front.start = 0;
     const harness = renderDragHarness([front, back]);
 
+    // Drag up one row AND rightward in time. The horizontal drift moves the
+    // clip out of overlap, but the two axes never fight: the vertical restack
+    // is resolved from the authored (overlapping) span, so it still inserts
+    // above the target lane rather than silently joining it.
     harness.startDrag(back, 1);
     harness.movePointer(200, -TRACK_H);
     await harness.dropPointer();
@@ -219,8 +223,8 @@ describe("useTimelineClipDrag", () => {
       track: 1,
       stackingReorder: {
         contextKey: "root",
-        placement: { type: "onto", layerId: harness.layers[0]!.id },
-        zIndexChanges: [{ key: "back", zIndex: 3 }],
+        placement: { type: "above", layerId: harness.layers[0]!.id },
+        zIndexChanges: [{ key: "back", zIndex: 4 }],
       },
     });
 

@@ -75,6 +75,23 @@ export interface TimelineElement {
 export type ZoomMode = "fit" | "manual";
 type TimelineTool = "select" | "razor";
 
+function resolveElementSelection(
+  ids: Iterable<string>,
+  anchor?: string | null,
+): { selectedElementIds: Set<string>; selectedElementId: string | null } {
+  const selectedElementIds = new Set(ids);
+  if (selectedElementIds.size === 0) {
+    return { selectedElementIds, selectedElementId: null };
+  }
+  if (anchor && selectedElementIds.has(anchor)) {
+    return { selectedElementIds, selectedElementId: anchor };
+  }
+  return {
+    selectedElementIds,
+    selectedElementId: selectedElementIds.values().next().value ?? null,
+  };
+}
+
 interface PlayerState {
   isPlaying: boolean;
   currentTime: number;
@@ -125,7 +142,10 @@ interface PlayerState {
 
   /** Multi-select: additional selected elements beyond selectedElementId. */
   selectedElementIds: Set<string>;
+  setSelection: (ids: Iterable<string>, anchor?: string | null) => void;
+  addSelectedElementId: (id: string) => void;
   toggleSelectedElementId: (id: string) => void;
+  clearSelection: () => void;
   clearSelectedElementIds: () => void;
 
   /** Keyframe data per element id, populated from parsed GSAP animations. */
@@ -265,14 +285,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   setAutoKeyframeEnabled: (enabled) => set({ autoKeyframeEnabled: enabled }),
 
   selectedElementIds: new Set<string>(),
+  setSelection: (ids, anchor) => set(resolveElementSelection(ids, anchor)),
+  addSelectedElementId: (id: string) =>
+    set((s) => {
+      const next = new Set(s.selectedElementIds);
+      next.add(id);
+      return resolveElementSelection(next, s.selectedElementId);
+    }),
   toggleSelectedElementId: (id: string) =>
     set((s) => {
       const next = new Set(s.selectedElementIds);
       if (next.has(id)) next.delete(id);
       else next.add(id);
-      return { selectedElementIds: next };
+      return resolveElementSelection(next, s.selectedElementId);
     }),
-  clearSelectedElementIds: () => set({ selectedElementIds: new Set() }),
+  clearSelection: () => set({ selectedElementId: null, selectedElementIds: new Set() }),
+  clearSelectedElementIds: () => set({ selectedElementId: null, selectedElementIds: new Set() }),
 
   keyframeCache: new Map(),
   setKeyframeCache: (elementId, data) =>
@@ -390,8 +418,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       // to "modify" a keyframe on the new element. A diamond click sets the pct AFTER
       // calling setSelectedElementId, so this never clobbers a genuine keyframe select.
       id !== s.selectedElementId
-        ? { selectedElementId: id, activeKeyframePct: null, motionPathArmed: false }
-        : { selectedElementId: id },
+        ? {
+            selectedElementId: id,
+            selectedElementIds: id ? new Set([id]) : new Set(),
+            activeKeyframePct: null,
+            motionPathArmed: false,
+          }
+        : { selectedElementId: id, selectedElementIds: id ? new Set([id]) : new Set() },
     ),
   updateElement: (elementId, updates) =>
     set((state) => ({

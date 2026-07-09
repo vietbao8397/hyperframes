@@ -222,6 +222,77 @@ describe("usePlayerStore", () => {
     });
   });
 
+  describe("selectedElementIds", () => {
+    it("sets a multi-id selection with a coherent anchor", () => {
+      usePlayerStore.getState().setSelection(["el-1", "el-2", "el-3"], "el-2");
+
+      const state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual(["el-1", "el-2", "el-3"]);
+      expect(state.selectedElementId).toBe("el-2");
+    });
+
+    it("falls back to the first selected id when the anchor is outside the set", () => {
+      usePlayerStore.getState().setSelection(["el-1", "el-2"], "missing");
+
+      const state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual(["el-1", "el-2"]);
+      expect(state.selectedElementId).toBe("el-1");
+    });
+
+    it("single-click selection replaces the set with the selected id", () => {
+      const store = usePlayerStore.getState();
+      store.setSelection(["el-1", "el-2"], "el-2");
+      store.setSelectedElementId("el-3");
+
+      const state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual(["el-3"]);
+      expect(state.selectedElementId).toBe("el-3");
+    });
+
+    it("clearing single selection empties the set", () => {
+      const store = usePlayerStore.getState();
+      store.setSelection(["el-1", "el-2"], "el-2");
+      store.setSelectedElementId(null);
+
+      const state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual([]);
+      expect(state.selectedElementId).toBeNull();
+    });
+
+    it("toggle adds and removes members while keeping the anchor in the set", () => {
+      const store = usePlayerStore.getState();
+      store.setSelectedElementId("el-1");
+      store.toggleSelectedElementId("el-2");
+
+      let state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual(["el-1", "el-2"]);
+      expect(state.selectedElementId).toBe("el-1");
+
+      store.toggleSelectedElementId("el-1");
+
+      state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual(["el-2"]);
+      expect(state.selectedElementId).toBe("el-2");
+    });
+
+    it("clearSelection and clearSelectedElementIds empty the set and anchor", () => {
+      const store = usePlayerStore.getState();
+      store.setSelection(["el-1", "el-2"], "el-2");
+      store.clearSelection();
+
+      let state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual([]);
+      expect(state.selectedElementId).toBeNull();
+
+      store.setSelection(["el-3"], "el-3");
+      store.clearSelectedElementIds();
+
+      state = usePlayerStore.getState();
+      expect([...state.selectedElementIds]).toEqual([]);
+      expect(state.selectedElementId).toBeNull();
+    });
+  });
+
   describe("updateElement", () => {
     it("updates the start time of a specific element", () => {
       usePlayerStore.getState().setElements([

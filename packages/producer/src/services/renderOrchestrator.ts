@@ -955,38 +955,29 @@ function replaceBodyWithRenderClone(body: HTMLElement, renderClone: Element): vo
   body.appendChild(renderClone);
 }
 
-/**
- * Restore an env var to a previously-captured value (`undefined` deletes it
- * rather than setting the literal string "undefined"). Used to make the DE
- * parallel-router's HF_DE_PARALLEL_STREAM mutation safe to leave uncleared on
- * any exit path other than the one that explicitly calls this — see the
- * outer `finally` in executeRenderJob (review: an unrestored env var leaks
- * into the next render sharing this process).
- */
-export function restoreEnv(name: string, prev: string | undefined): void {
-  if (prev === undefined) delete process.env[name];
-  else process.env[name] = prev;
-}
-
 export function shouldUseStreamingEncode(
   cfg: Pick<EngineConfig, "enableStreamingEncode" | "streamingEncodeMaxDurationSeconds">,
   outputFormat: NonNullable<RenderConfig["format"]>,
   workerCount: number,
   // Composition timeline duration in seconds.
   durationSeconds: number,
+  // Per-render override (set by the DE parallel router) — see
+  // deParallelStreamForced's declaration in executeRenderJob for why this is
+  // a parameter instead of an env-var read.
+  forceParallelStream = false,
 ): boolean {
   if (!cfg.enableStreamingEncode) return false;
   if (outputFormat === "png-sequence") return false;
   if (outputFormat === "gif") return false;
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return false;
   if (durationSeconds > cfg.streamingEncodeMaxDurationSeconds) return false;
-  // SPIKE (HF_DE_PARALLEL_STREAM): allow multi-worker streaming for the
-  // interleaved drawElement produce experiment. Contiguous-chunk parallel
-  // streaming stalls (worker k+1's first frame waits for ALL of worker k's),
-  // so this only makes sense with the interleaved distribution the capture
-  // stage selects under the same flag. Explicit opt-in, unverified — do not
-  // ship default-on without threading guardFrame through onFrameBuffer.
-  if (process.env.HF_DE_PARALLEL_STREAM === "true") return true;
+  // HF_DE_PARALLEL_STREAM (manual opt-in) / forceParallelStream (router):
+  // allow multi-worker streaming for the interleaved drawElement produce
+  // path. Contiguous-chunk parallel streaming stalls (worker k+1's first
+  // frame waits for ALL of worker k's), so this only makes sense with the
+  // interleaved distribution the capture stage selects under the same
+  // condition.
+  if (forceParallelStream || process.env.HF_DE_PARALLEL_STREAM === "true") return true;
   return workerCount === 1;
 }
 
@@ -1141,12 +1132,11 @@ export function shouldPreferParallelDrawElement(args: {
  * Plan the self-verify retry for a router-routed render: the bet on verified
  * parallel drawElement streaming lost, so the re-render falls back to the
  * pre-router worker count on the ordinary (non-DE) parallel path. Unlike
- * `resolveInversionRetryPlan`, the caller must also clear
- * `process.env.HF_DE_PARALLEL_STREAM` (set by the router) BEFORE calling
- * this — `shouldUseStreamingEncode` reads that env var directly, so an
- * uncleared flag would keep resolving to the parallel-streaming shape on the
- * retry instead of the well-tested parallel-disk fallback. Returns null when
- * the render was not router-routed.
+ * `resolveInversionRetryPlan`, the caller must also clear the router's
+ * `deParallelStreamForced` local BEFORE calling this — `shouldUseStreamingEncode`
+ * takes it as a direct argument, so a stale `true` would keep resolving to
+ * the parallel-streaming shape on the retry instead of the well-tested
+ * parallel-disk fallback. Returns null when the render was not router-routed.
  */
 export function resolveParallelRouterRetryPlan(args: {
   deParallelRouter: "routed" | "reverted" | undefined;
@@ -1324,13 +1314,9 @@ export async function executeRenderJob(
   // between declaration and the try-block (currently impossible, but
   // defensible if more setup ever lands here) can't leak the interval.
   let memSampler: MemorySampler | null = null;
-  // Same reason these two live out here rather than with the rest of the DE
-  // state below (which is fine staying try-scoped, nothing outside the try
-  // reads it): a `let` declared inside `try {}` is NOT visible in the
-  // sibling `finally {}` block in JS — they're independent block scopes —
-  // so the leak-safety restore in `finally` needs these declared here.
+  // "routed" = the parallel router fired and held; "reverted" = fired but
+  // the self-verify retry rolled back; undefined = never fired.
   let deParallelRouter: "routed" | "reverted" | undefined;
-  let deParallelStreamEnvBefore: string | undefined;
 
   try {
     memSampler = createMemorySampler();
@@ -1455,12 +1441,20 @@ export async function executeRenderJob(
     // "inverted" = fired and held; "reverted" = fired but the self-verify
     // retry rolled back to the parallel path; undefined = never fired.
     let deWorkerInversion: "inverted" | "reverted" | undefined;
-    // deParallelRouter: "routed" = the parallel router fired and held;
-    // "reverted" = fired but the self-verify retry rolled back; undefined =
-    // never fired. Mutually exclusive with deWorkerInversion — the router
-    // takes priority when both would be eligible (see
-    // shouldPreferParallelDrawElement). Declared above the try (with
-    // deParallelStreamEnvBefore) so the outer `finally` can read it.
+    // deParallelRouter is mutually exclusive with deWorkerInversion — the
+    // router takes priority when both would be eligible (see
+    // shouldPreferParallelDrawElement).
+    //
+    // Per-render (not process-global) signal that the router wants parallel
+    // drawElement streaming. `HF_DE_PARALLEL_STREAM` env var stays as the
+    // manual opt-in for local testing (read directly by
+    // shouldUseStreamingEncode / the capture stage), but the router itself
+    // must NOT mutate process.env: the producer server runs concurrent
+    // renders in one process (PRODUCER_MAX_CONCURRENT_RENDERS), and a global
+    // flag set by one render's router decision would leak into an unrelated
+    // render already executing in the same process. Threading this as a
+    // local instead closes that cross-talk, not just the sequential leak.
+    let deParallelStreamForced = false;
     let deSelfVerifyFallback = false;
     let deFallbackReason: string | undefined;
     let deDrainStats: import("./render/stages/captureStreamingStage.js").DeDrainStats | undefined;
@@ -1965,11 +1959,7 @@ export async function executeRenderJob(
           "Set HF_DE_PARALLEL_ROUTER=false or --workers N to override.",
       );
       workerCount = ROUTER_WORKER_COUNT;
-      // Captured BEFORE the mutation so the outer `finally` can restore the
-      // exact prior value on every exit path, not just the self-verify
-      // retry below (review) — see deParallelStreamEnvBefore's declaration.
-      deParallelStreamEnvBefore = process.env.HF_DE_PARALLEL_STREAM;
-      process.env.HF_DE_PARALLEL_STREAM = "true";
+      deParallelStreamForced = true;
     } else if (deInversionEligible && workerCount > 1) {
       deWorkerInversion = "inverted";
       log.info(
@@ -1998,7 +1988,13 @@ export async function executeRenderJob(
     // let auto-parallel renders use disk frames: the current ordered streaming
     // writer would otherwise stall later workers behind earlier frame ranges.
     // png-sequence has no encoded video output, so streaming is always bypassed.
-    let useStreamingEncode = shouldUseStreamingEncode(cfg, outputFormat, workerCount, job.duration);
+    let useStreamingEncode = shouldUseStreamingEncode(
+      cfg,
+      outputFormat,
+      workerCount,
+      job.duration,
+      deParallelStreamForced,
+    );
     log.info("streaming-encode gate", {
       enabled: useStreamingEncode,
       configFlag: cfg.enableStreamingEncode,
@@ -2017,7 +2013,9 @@ export async function executeRenderJob(
     // drain guard), so the confinement rule is satisfied and the parallel
     // clamp does not apply. The disk path stays clamped.
     const deParallelStreamVerified =
-      process.env.HF_DE_PARALLEL_STREAM === "true" && useStreamingEncode && workerCount > 1;
+      (deParallelStreamForced || process.env.HF_DE_PARALLEL_STREAM === "true") &&
+      useStreamingEncode &&
+      workerCount > 1;
     if (
       cfg.useDrawElement &&
       process.env.PRODUCER_EXPERIMENTAL_FAST_CAPTURE !== "true" &&
@@ -2238,6 +2236,7 @@ export async function executeRenderJob(
                 workerCount,
                 probeSession,
                 outputFormat,
+                forceParallelStream: deParallelStreamForced,
                 streamingEncoderOptions: {
                   fps: job.config.fps,
                   width,
@@ -2287,12 +2286,11 @@ export async function executeRenderJob(
             deSelfVerifyFallback: true,
           });
           probeSession = null;
-          // HF_DE_PARALLEL_STREAM must be restored BEFORE resolveParallelRouterRetryPlan
-          // recomputes useStreamingEncode, or shouldUseStreamingEncode's own env
-          // check would keep resolving to the parallel-streaming shape on the
-          // retry instead of the well-tested parallel-disk fallback.
-          if (deParallelRouter === "routed")
-            restoreEnv("HF_DE_PARALLEL_STREAM", deParallelStreamEnvBefore);
+          // Must clear BEFORE resolveParallelRouterRetryPlan recomputes
+          // useStreamingEncode, or shouldUseStreamingEncode would keep
+          // resolving to the parallel-streaming shape on the retry instead
+          // of the well-tested parallel-disk fallback.
+          if (deParallelRouter === "routed") deParallelStreamForced = false;
           const inversionRetryPlan = resolveInversionRetryPlan({
             deWorkerInversion,
             preInversionWorkerCount: preRoutingWorkerCount,
@@ -2717,13 +2715,5 @@ export async function executeRenderJob(
     throw error;
   } finally {
     memSampler?.stop();
-    // Guaranteed restore regardless of exit path (success, any thrown error,
-    // abort) — the DE self-verify retry path also restores this mid-render
-    // (so ITS OWN recomputation sees the right value), but that branch is
-    // only one of several ways this render can end; this is the actual
-    // leak fix (review).
-    if (deParallelStreamEnvBefore !== undefined || deParallelRouter) {
-      restoreEnv("HF_DE_PARALLEL_STREAM", deParallelStreamEnvBefore);
-    }
   }
 }

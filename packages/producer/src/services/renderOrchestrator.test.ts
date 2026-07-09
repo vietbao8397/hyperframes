@@ -30,7 +30,6 @@ import {
   shouldDiscardProbeSessionForPageSideCompositing,
   resolveInversionRetryPlan,
   resolveParallelRouterRetryPlan,
-  restoreEnv,
   shouldPreferParallelDrawElement,
   shouldPreferSingleWorkerDrawElement,
   shouldUseStreamingEncode,
@@ -403,6 +402,14 @@ describe("shouldUseStreamingEncode", () => {
   it("keeps png-sequence and parallel capture on the non-streaming path", () => {
     expect(shouldUseStreamingEncode(streamingEnabledConfig, "png-sequence", 1, 240)).toBe(false);
     expect(shouldUseStreamingEncode(streamingEnabledConfig, "mp4", 2, 240)).toBe(false);
+  });
+
+  it("forceParallelStream overrides the parallel-capture clamp for verified multi-worker streaming", () => {
+    expect(shouldUseStreamingEncode(streamingEnabledConfig, "mp4", 3, 240, true)).toBe(true);
+    expect(shouldUseStreamingEncode(streamingEnabledConfig, "mp4", 3, 240, false)).toBe(false);
+    expect(shouldUseStreamingEncode(streamingEnabledConfig, "png-sequence", 3, 240, true)).toBe(
+      false,
+    );
   });
 
   it("keeps renders over the configured max duration on normal encoding", () => {
@@ -1811,54 +1818,17 @@ describe("resolveParallelRouterRetryPlan (self-verify retry rollback)", () => {
   });
 
   it("restores the pre-router worker count and routes multi-worker retries to disk", () => {
-    // Caller is responsible for clearing HF_DE_PARALLEL_STREAM before calling
-    // this (see the function's own doc comment) — simulated here since
-    // shouldUseStreamingEncode reads it directly.
-    const prevEnv = process.env.HF_DE_PARALLEL_STREAM;
-    delete process.env.HF_DE_PARALLEL_STREAM;
-    try {
-      const plan = resolveParallelRouterRetryPlan({
-        deParallelRouter: "routed",
-        preRouterWorkerCount: 5,
-        cfg,
-        outputFormat: "mp4",
-        durationSeconds: 80,
-      });
-      expect(plan).toEqual({
-        workerCount: 5,
-        useStreamingEncode: false,
-        deParallelRouter: "reverted",
-      });
-    } finally {
-      restoreEnv("HF_DE_PARALLEL_STREAM", prevEnv);
-    }
-  });
-});
-
-describe("restoreEnv (DE parallel-router leak-safety primitive)", () => {
-  const VAR = "HF_DE_PARALLEL_STREAM_TEST_VAR";
-  const prev = process.env[VAR];
-
-  afterEach(() => {
-    if (prev === undefined) delete process.env[VAR];
-    else process.env[VAR] = prev;
-  });
-
-  it("deletes the var when the captured prior value was undefined", () => {
-    process.env[VAR] = "true";
-    restoreEnv(VAR, undefined);
-    expect(process.env[VAR]).toBeUndefined();
-  });
-
-  it("restores the exact prior string value, including a falsy-looking one", () => {
-    process.env[VAR] = "true";
-    restoreEnv(VAR, "false");
-    expect(process.env[VAR]).toBe("false");
-  });
-
-  it("is a no-op shape when there was nothing to restore", () => {
-    delete process.env[VAR];
-    restoreEnv(VAR, undefined);
-    expect(process.env[VAR]).toBeUndefined();
+    const plan = resolveParallelRouterRetryPlan({
+      deParallelRouter: "routed",
+      preRouterWorkerCount: 5,
+      cfg,
+      outputFormat: "mp4",
+      durationSeconds: 80,
+    });
+    expect(plan).toEqual({
+      workerCount: 5,
+      useStreamingEncode: false,
+      deParallelRouter: "reverted",
+    });
   });
 });

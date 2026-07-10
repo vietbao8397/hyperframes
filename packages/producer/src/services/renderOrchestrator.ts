@@ -1162,6 +1162,36 @@ export function resolveParallelRouterRetryPlan(args: {
   };
 }
 
+/**
+ * Should a capture-stage error retry via the pinned-worker-count fallback
+ * (the same "well-tested parallel-disk / single-worker screenshot" path
+ * `resolveInversionRetryPlan`/`resolveParallelRouterRetryPlan` reroute to)
+ * instead of failing the render outright?
+ *
+ * True for the drawElement self-verify failures this retry path was
+ * originally built for (blank frame / PSNR breach), AND for any OTHER
+ * capture-stage failure (host-contention timeout, worker crash) while a
+ * worker count was PINNED by the inversion or router — those pin regardless
+ * of calibration, so a generic capture failure on that pinned count is
+ * exactly the scenario the pin itself introduced risk for.
+ *
+ * Excluded: OOM. The fallback's worker count is calibration's own pick,
+ * which can be >= the pinned count (the router can pin to 3 while
+ * calibration wanted 5) — retrying at the same or a higher count would
+ * likely just OOM again. Fail fast so it's visible instead of masked by a
+ * doomed retry.
+ */
+export function shouldRetryViaPinnedFallback(args: {
+  isVerifyError: boolean;
+  isMemoryExhaustion: boolean;
+  deWorkerInversion: "inverted" | "reverted" | undefined;
+  deParallelRouter: "routed" | "reverted" | undefined;
+}): boolean {
+  if (args.isVerifyError) return true;
+  if (args.isMemoryExhaustion) return false;
+  return args.deWorkerInversion === "inverted" || args.deParallelRouter === "routed";
+}
+
 export function resolveCaptureForceScreenshotForPageSideCompositing(args: {
   forceScreenshot: boolean;
   usePageSideCompositing: boolean;
@@ -2275,26 +2305,47 @@ export async function executeRenderJob(
           streamingRes = await invokeStreaming();
         } catch (err) {
           // drawElement self-verification tripped (blank frame or PSNR breach
-          // vs the pre-injection ground truth). The whole render restarts on
-          // the screenshot path — slower, never wrong. The failed attempt's
-          // session was closed by the stage's finally; probeSession (if any)
-          // was consumed by it, so a fresh session spawns on retry.
-          if (!isDrawElementVerificationError(err)) throw err;
-          deSelfVerifyFallback = true;
-          deFallbackReason = /blank/i.test(err instanceof Error ? err.message : "")
-            ? "blank"
-            : "psnr";
-          log.warn("[Render] drawElement self-verification failed; re-rendering via screenshot", {
-            error: err instanceof Error ? err.message : String(err),
-          });
+          // vs the pre-injection ground truth), OR — when the inversion/router
+          // pinned a fixed worker count regardless of calibration — any other
+          // capture-stage failure (host contention timeout, worker crash) on
+          // that pinned path. Both restart the whole render on the same
+          // tested screenshot/parallel-SS baseline: slower, never wrong. The
+          // failed attempt's session was closed by the stage's finally;
+          // probeSession (if any) was consumed by it, so a fresh session
+          // spawns on retry. See shouldRetryViaPinnedFallback for exactly
+          // which errors qualify.
+          const isVerifyError = isDrawElementVerificationError(err);
+          if (
+            !shouldRetryViaPinnedFallback({
+              isVerifyError,
+              isMemoryExhaustion: isMemoryExhaustionError(err),
+              deWorkerInversion,
+              deParallelRouter,
+            })
+          )
+            throw err;
+          deSelfVerifyFallback = isVerifyError;
+          deFallbackReason = isVerifyError
+            ? /blank/i.test(err instanceof Error ? err.message : "")
+              ? "blank"
+              : "psnr"
+            : "capture_error";
+          log.warn(
+            isVerifyError
+              ? "[Render] drawElement self-verification failed; re-rendering via screenshot"
+              : "[Render] capture failed on the pinned worker count; re-rendering via screenshot",
+            { error: err instanceof Error ? err.message : String(err) },
+          );
           observability.checkpoint(
             "capture_streaming",
-            "drawElement self-verify failed; retrying with forceScreenshot",
+            isVerifyError
+              ? "drawElement self-verify failed; retrying with forceScreenshot"
+              : "capture failed on pinned worker count; retrying with forceScreenshot",
           );
           captureForceScreenshot = true;
           updateCaptureObservability({
             forceScreenshot: true,
-            deSelfVerifyFallback: true,
+            deSelfVerifyFallback,
           });
           probeSession = null;
           // Must clear BEFORE resolveParallelRouterRetryPlan recomputes

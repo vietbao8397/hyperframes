@@ -30,6 +30,7 @@ import {
   shouldDiscardProbeSessionForPageSideCompositing,
   resolveInversionRetryPlan,
   resolveParallelRouterRetryPlan,
+  shouldRetryViaPinnedFallback,
   shouldPreferParallelDrawElement,
   shouldPreferSingleWorkerDrawElement,
   shouldUseStreamingEncode,
@@ -1830,5 +1831,84 @@ describe("resolveParallelRouterRetryPlan (self-verify retry rollback)", () => {
       useStreamingEncode: false,
       deParallelRouter: "reverted",
     });
+  });
+});
+
+describe("shouldRetryViaPinnedFallback (widen the self-verify retry to generic capture failures)", () => {
+  it("always retries a drawElement self-verify failure, pinned or not", () => {
+    expect(
+      shouldRetryViaPinnedFallback({
+        isVerifyError: true,
+        isMemoryExhaustion: false,
+        deWorkerInversion: undefined,
+        deParallelRouter: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("retries a generic capture failure when the router pinned the worker count", () => {
+    expect(
+      shouldRetryViaPinnedFallback({
+        isVerifyError: false,
+        isMemoryExhaustion: false,
+        deWorkerInversion: undefined,
+        deParallelRouter: "routed",
+      }),
+    ).toBe(true);
+  });
+
+  it("retries a generic capture failure when the inversion pinned the worker count", () => {
+    expect(
+      shouldRetryViaPinnedFallback({
+        isVerifyError: false,
+        isMemoryExhaustion: false,
+        deWorkerInversion: "inverted",
+        deParallelRouter: undefined,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not retry a generic capture failure when nothing pinned the worker count", () => {
+    expect(
+      shouldRetryViaPinnedFallback({
+        isVerifyError: false,
+        isMemoryExhaustion: false,
+        deWorkerInversion: undefined,
+        deParallelRouter: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not retry OOM even when the router pinned the worker count", () => {
+    expect(
+      shouldRetryViaPinnedFallback({
+        isVerifyError: false,
+        isMemoryExhaustion: true,
+        deWorkerInversion: undefined,
+        deParallelRouter: "routed",
+      }),
+    ).toBe(false);
+  });
+
+  it("does not retry OOM even when the inversion pinned the worker count", () => {
+    expect(
+      shouldRetryViaPinnedFallback({
+        isVerifyError: false,
+        isMemoryExhaustion: true,
+        deWorkerInversion: "inverted",
+        deParallelRouter: undefined,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not retry a generic failure on an already-reverted cohort (no pin left to retreat from)", () => {
+    expect(
+      shouldRetryViaPinnedFallback({
+        isVerifyError: false,
+        isMemoryExhaustion: false,
+        deWorkerInversion: "reverted",
+        deParallelRouter: undefined,
+      }),
+    ).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   HF_COLOR_GRADING_PRESETS,
   isHfColorGradingActive,
@@ -32,6 +32,18 @@ export function FlatColorGradingAccessory({
 }) {
   const { grading, compareEnabled, runtimeStatus, commitCompare, resetGrading } = state;
   const gradingActive = isHfColorGradingActive(grading);
+  // Tracks the active hold's cleanup so it can be torn down on unmount too —
+  // without this, switching selection away mid-hold (unmounting this
+  // accessory) leaves the pointerup/pointercancel/blur listeners registered
+  // on `window` forever, each holding a closure over the old commitCompare.
+  const releaseRef = useRef<(() => void) | null>(null);
+  useEffect(
+    () => () => {
+      releaseRef.current?.();
+      releaseRef.current = null;
+    },
+    [],
+  );
 
   return (
     <span className="flex items-center gap-2.5">
@@ -50,7 +62,9 @@ export function FlatColorGradingAccessory({
             window.removeEventListener("pointerup", release);
             window.removeEventListener("pointercancel", release);
             window.removeEventListener("blur", release);
+            releaseRef.current = null;
           };
+          releaseRef.current = release;
           window.addEventListener("pointerup", release);
           window.addEventListener("pointercancel", release);
           window.addEventListener("blur", release);
@@ -298,6 +312,7 @@ export function FlatColorGradingSection({
         <span className="text-[11px] text-panel-text-2">Preset</span>
         <FlatSelectRow
           label=""
+          ariaLabel="Preset"
           value={grading.preset ?? "neutral"}
           options={PRESET_OPTIONS}
           tier={resolveValueTier(
@@ -344,6 +359,7 @@ export function FlatColorGradingSection({
               </span>
               <select
                 data-flat-grade-lut-select="true"
+                aria-label="Custom LUT"
                 value={lut?.src ?? ""}
                 onChange={(e) => {
                   const src = e.target.value;
@@ -510,6 +526,7 @@ export function FlatColorGradingSection({
           <span className="flex items-center gap-1.5 text-[11px] text-panel-text-2">
             Copy grade to
             <select
+              aria-label="Copy grade to"
               value={applyScope}
               onChange={(e) => onSetApplyScope(e.target.value as "source-file" | "project")}
               disabled={applyBusy}

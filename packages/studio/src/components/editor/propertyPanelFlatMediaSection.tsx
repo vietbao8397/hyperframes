@@ -9,7 +9,8 @@ import {
   parseNumericValue,
   stripQueryAndHash,
 } from "./propertyPanelHelpers";
-import { FlatSelectRow, FlatSlider, FlatToggle } from "./propertyPanelFlatPrimitives";
+import { FlatSelectRow, FlatSlider } from "./propertyPanelFlatPrimitives";
+import { FlatToggle } from "./propertyPanelFlatToggle";
 
 // fallow-ignore-next-line complexity
 export function FlatMediaSection({

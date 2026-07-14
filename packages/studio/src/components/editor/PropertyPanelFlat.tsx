@@ -77,6 +77,7 @@ export function PropertyPanelFlat({
   onUngroup,
   onSetStyle,
   onSetAttribute,
+  onSetAttributes,
   onSetAttributeLive,
   onApplyColorGradingScope,
   onSetHtmlAttribute,
@@ -145,6 +146,7 @@ export function PropertyPanelFlat({
   | "onUngroup"
   | "onSetStyle"
   | "onSetAttribute"
+  | "onSetAttributes"
   | "onSetAttributeLive"
   | "onApplyColorGradingScope"
   | "onSetHtmlAttribute"
@@ -440,6 +442,7 @@ export function PropertyPanelFlat({
           multipleTimelines={gsapMultipleTimelines}
           unsupportedTimelinePattern={gsapUnsupportedTimelinePattern}
           onSetAttribute={onSetAttribute}
+          onSetAttributes={onSetAttributes}
           {...(gsapEffectHandlers ?? EMPTY_GSAP_EFFECT_HANDLERS)}
         />
       ),
@@ -516,7 +519,7 @@ export function PropertyPanelFlat({
         onUngroup={onUngroup}
         showUngroup={Boolean(onUngroup && element.dataAttributes["hf-group"] != null)}
       />
-      <div data-flat-panel-body="true" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div data-flat-panel-body="true" className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {beforeOpen.map((g) => (
           <FlatGroupHeader
             key={g.id}

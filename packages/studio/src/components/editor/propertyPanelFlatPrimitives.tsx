@@ -87,6 +87,10 @@ export function FlatRow({
 export interface FlatSegmentOption {
   key: string;
   node: ReactNode;
+  /** Accessible name — the glyph alone (e.g. two indistinguishable "A"
+   *  buttons for upright vs. italic) isn't a valid accessible name on its
+   *  own. */
+  label: string;
   active: boolean;
 }
 
@@ -114,6 +118,8 @@ export function FlatSegmentedRow({
             <button
               type="button"
               data-flat-segment="true"
+              aria-label={option.label}
+              aria-pressed={option.active}
               disabled={disabled}
               onClick={() => onChange(option.key)}
               className={`px-1.5 py-1 text-[11px] transition-colors disabled:cursor-not-allowed ${
@@ -286,6 +292,37 @@ export function FlatSlider({
   // prop, so the release flush must dedupe against what we just sent, not
   // against the stale prop, or the same value commits twice.
   const lastCommittedRef = useRef(value);
+  // Always the current render's onCommit — read inside the throttle timer
+  // instead of closing over the callback at schedule time. A caller whose
+  // onCommit spreads other current state (e.g. Grade's "...grading, details:
+  // {...}") would otherwise let a queued trailing commit fire ~40ms later
+  // with a stale snapshot and silently revert whatever the user changed on a
+  // different control in between.
+  const onCommitRef = useRef(onCommit);
+  onCommitRef.current = onCommit;
+  // Always this render's committed value — read directly (not via the
+  // effect below) by onLostPointerCapture, so the resync there doesn't
+  // depend on ordering between the native event and the [value] effect.
+  const latestValueRef = useRef(value);
+  latestValueRef.current = value;
+  // releasePointerCapture() (called explicitly below in onPointerUp/
+  // onPointerCancel) fires lostpointercapture SYNCHRONOUSLY in real
+  // browsers — i.e. onLostPointerCapture runs mid-onPointerUp, BEFORE
+  // onPointerUp's own draggingRef check and final commitDraft. Without this
+  // flag, a NORMAL release would have onLostPointerCapture reset
+  // draggingRef/draft to the stale value first, making onPointerUp's own
+  // "if (!draggingRef.current) return" bail out and silently drop the
+  // real final-position commit. Set right before each explicit release
+  // call so onLostPointerCapture can tell "our own release, the caller's
+  // own logic already handles it" apart from a genuine EXTERNAL capture
+  // loss (another element steals it, or the browser reclaims it for a
+  // scroll/touch gesture) where no other handler is about to run.
+  const explicitReleaseRef = useRef(false);
+  // The committed value when the current drag began — Escape and right-click
+  // both cancel an in-progress drag by reverting to this, not by leaving
+  // whatever position the pointer last reached committed.
+  const dragStartValueRef = useRef(value);
+  const activePointerIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (draggingRef.current) return;
@@ -294,7 +331,14 @@ export function FlatSlider({
   }, [value]);
   useEffect(
     () => () => {
-      if (commitTimerRef.current) clearTimeout(commitTimerRef.current);
+      if (commitTimerRef.current) {
+        clearTimeout(commitTimerRef.current);
+        // Flush rather than drop a still-queued edit — this only fires if the
+        // component unmounts mid-drag (e.g. selection changes away), and
+        // silently discarding the user's last dragged position would look
+        // like data loss.
+        if (pendingRef.current !== null) onCommitRef.current(pendingRef.current);
+      }
     },
     [],
   );
@@ -316,7 +360,7 @@ export function FlatSlider({
     lastCommitAtRef.current = Date.now();
     if (nextDraft !== lastCommittedRef.current) {
       lastCommittedRef.current = nextDraft;
-      onCommit(nextDraft);
+      onCommitRef.current(nextDraft);
     }
   };
   const scheduleCommit = (nextDraft: number) => {
@@ -333,6 +377,22 @@ export function FlatSlider({
       }, 40 - elapsed);
     }
   };
+  // Reverts to the pre-drag value instead of leaving whatever position the
+  // pointer last reached committed — the drag's own leading-edge commit (in
+  // onPointerDown) may already have applied an intermediate value, so this
+  // must go through commitDraft (not just a visual setDraft) to actually
+  // undo it.
+  const cancelDrag = (target: HTMLDivElement) => {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    const pointerId = activePointerIdRef.current;
+    if (pointerId !== null && target.hasPointerCapture(pointerId)) {
+      explicitReleaseRef.current = true;
+      target.releasePointerCapture(pointerId);
+    }
+    setDraft(dragStartValueRef.current);
+    commitDraft(dragStartValueRef.current);
+  };
 
   return (
     <div className="flex min-h-[28px] items-center gap-2.5">
@@ -346,10 +406,13 @@ export function FlatSlider({
         aria-valuemax={max}
         aria-disabled={disabled}
         tabIndex={disabled ? -1 : 0}
+        style={{ touchAction: "none" }}
         className={`relative h-5 flex-1 ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
         onPointerDown={(e) => {
           if (disabled) return;
           draggingRef.current = true;
+          dragStartValueRef.current = latestValueRef.current;
+          activePointerIdRef.current = e.pointerId;
           e.currentTarget.setPointerCapture(e.pointerId);
           const stepped = stepFromClientX(e.clientX, e.currentTarget.getBoundingClientRect());
           setDraft(stepped);
@@ -363,6 +426,7 @@ export function FlatSlider({
         }}
         onPointerUp={(e) => {
           if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+            explicitReleaseRef.current = true;
             e.currentTarget.releasePointerCapture(e.pointerId);
           }
           if (disabled) return;
@@ -377,18 +441,54 @@ export function FlatSlider({
           commitDraft(stepped);
         }}
         onPointerCancel={(e) => {
-          draggingRef.current = false;
-          if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
+          // A native pointercancel means the platform aborted the gesture (a
+          // scroll/touch takeover, pen leaving range, etc.) — that must cancel
+          // the drag the same way Escape/right-click do (revert to the
+          // pre-drag value), not just stop dragging and leave whatever
+          // intermediate position the pointer last reached committed.
+          cancelDrag(e.currentTarget);
+        }}
+        onLostPointerCapture={() => {
+          if (explicitReleaseRef.current) {
+            // Our own onPointerUp/onPointerCancel just released capture —
+            // their own logic already handles (or intentionally leaves)
+            // draggingRef/draft correctly. Resyncing here too would race
+            // onPointerUp's still-pending final commitDraft(stepped) below
+            // this call, since draggingRef flipping false would make its
+            // own "if (!draggingRef.current) return" bail out first.
+            explicitReleaseRef.current = false;
+            return;
           }
+          // A genuine EXTERNAL capture loss (another element steals it, or
+          // the browser reclaims it for a scroll/touch gesture) — no other
+          // handler is about to run, so resync immediately and directly
+          // from latestValueRef rather than only clearing draggingRef and
+          // waiting for the [value] effect to notice (that effect depends
+          // on `value` actually changing again to re-run).
+          draggingRef.current = false;
+          setDraft(latestValueRef.current);
+          lastCommittedRef.current = latestValueRef.current;
         }}
         onKeyDown={(e) => {
           if (disabled) return;
+          if (e.key === "Escape" && draggingRef.current) {
+            e.preventDefault();
+            cancelDrag(e.currentTarget);
+            return;
+          }
           const next = sliderKeyTarget(e.key, draft, min, max, step);
           if (next === null) return;
           e.preventDefault();
           setDraft(next);
           commitDraft(next);
+        }}
+        onContextMenu={(e) => {
+          // Right-click during a drag must cancel it (revert to the pre-drag
+          // value), not leave the last dragged-to position committed while
+          // the native context menu opens on top of the slider.
+          if (!draggingRef.current) return;
+          e.preventDefault();
+          cancelDrag(e.currentTarget);
         }}
       >
         <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 rounded-full bg-panel-hover">
@@ -429,8 +529,9 @@ export function FlatSlider({
               type="button"
               data-flat-slider-reset="true"
               title="Remove — fall back to default"
+              disabled={disabled}
               onClick={onReset}
-              className="text-panel-text-3 hover:text-panel-text-1"
+              className="text-panel-text-3 hover:text-panel-text-1 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <RotateCcw size={11} />
             </button>
@@ -441,115 +542,4 @@ export function FlatSlider({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  FlatSelectRow — label/value row backed by a native <select>        */
-/* ------------------------------------------------------------------ */
-
-export function FlatSelectRow({
-  label,
-  value,
-  options,
-  tier,
-  disabled,
-  onChange,
-  onReset,
-}: {
-  label: string;
-  value: string;
-  options: Array<string | { value: string; label: string }>;
-  tier: PropertyValueTier;
-  disabled?: boolean;
-  onChange: (nextValue: string) => void;
-  onReset?: () => void;
-}) {
-  const normalizedOptions = options.map((option) =>
-    typeof option === "string" ? { value: option, label: option } : option,
-  );
-  return (
-    <div className="group flex min-h-[30px] items-center justify-between">
-      <span className={`text-[11px] ${VALUE_TIER_LABEL_CLASS[tier]}`}>{label}</span>
-      <span className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5">
-          <select
-            value={value}
-            disabled={disabled}
-            onChange={(e) => onChange(e.target.value)}
-            className={`appearance-none bg-transparent text-right font-mono text-[11px] outline-none disabled:cursor-not-allowed ${VALUE_TIER_VALUE_CLASS[tier]}`}
-          >
-            {normalizedOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="currentColor"
-            className="flex-shrink-0 text-panel-text-5"
-          >
-            <path d="M2 3l3 4 3-4z" />
-          </svg>
-        </label>
-        {tier === "explicitCustom" && onReset && (
-          <button
-            type="button"
-            data-flat-select-reset="true"
-            title="Remove — fall back to default"
-            onClick={onReset}
-            className="flex-shrink-0 text-panel-text-3 opacity-0 transition-opacity hover:text-panel-text-1 group-hover:opacity-100"
-          >
-            <RotateCcw size={11} />
-          </button>
-        )}
-      </span>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  FlatToggle — 24×14 pill switch                                     */
-/* ------------------------------------------------------------------ */
-
-export function FlatToggle({
-  label,
-  checked,
-  disabled,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  disabled?: boolean;
-  onChange: (next: boolean) => void;
-}) {
-  return (
-    <div className="flex min-h-[30px] items-center justify-between">
-      <span
-        data-flat-toggle-label="true"
-        className={`text-[11px] ${checked ? "text-panel-text-2" : "text-panel-text-3"}`}
-      >
-        {label}
-      </span>
-      <button
-        type="button"
-        data-flat-toggle="true"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={`relative h-[14px] w-6 flex-shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-          checked ? "bg-panel-accent/35" : "bg-panel-hover"
-        }`}
-      >
-        <span
-          data-flat-toggle-knob="true"
-          className={`absolute top-0.5 h-2.5 w-2.5 rounded-full transition-all ${
-            checked ? "right-0.5 bg-panel-accent" : "left-0.5 bg-panel-text-4"
-          }`}
-        />
-      </button>
-    </div>
-  );
-}
+export { FlatSelectRow } from "./propertyPanelFlatSelectRow";

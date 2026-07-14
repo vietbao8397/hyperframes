@@ -56,6 +56,7 @@ export interface RenderObservabilityTelemetryPayload {
   captureDeFallbackReason?: string;
   captureDeFallbackFailedDb?: number;
   captureDeFallbackFrameIndex?: number;
+  captureDeFallbackThresholdDb?: number;
   /** Non-DE parallel-streaming router outcome ("screenshot" | "beginframe" —
    * routed; "eligible_off" — would route but the kill switch is off). */
   captureParallelStream?: string;
@@ -112,6 +113,7 @@ function renderObservabilityEventProperties(props: RenderObservabilityTelemetryP
     de_fallback_reason: props.captureDeFallbackReason,
     de_fallback_failed_db: props.captureDeFallbackFailedDb,
     de_fallback_frame_index: props.captureDeFallbackFrameIndex,
+    de_fallback_threshold_db: props.captureDeFallbackThresholdDb,
     capture_parallel_stream: props.captureParallelStream,
     observability_extract_video_count: props.observabilityExtractVideoCount,
     observability_extracted_video_count: props.observabilityExtractedVideoCount,
@@ -179,6 +181,7 @@ export function trackRenderComplete(
     deFallbackReason?: string;
     deFallbackFailedDb?: number;
     deFallbackFrameIndex?: number;
+    deFallbackThresholdDb?: number;
     deBlankSuspects?: number;
     deBlankDeterministicAccepts?: number;
     deBlankRecaptures?: number;
@@ -268,6 +271,7 @@ export function trackRenderComplete(
       de_fallback_reason: props.deFallbackReason,
       de_fallback_failed_db: props.deFallbackFailedDb,
       de_fallback_frame_index: props.deFallbackFrameIndex,
+      de_fallback_threshold_db: props.deFallbackThresholdDb,
       de_blank_suspects: props.deBlankSuspects,
       de_blank_deterministic_accepts: props.deBlankDeterministicAccepts,
       de_blank_recaptures: props.deBlankRecaptures,

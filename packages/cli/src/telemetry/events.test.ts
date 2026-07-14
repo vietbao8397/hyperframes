@@ -252,7 +252,7 @@ describe("render telemetry events", () => {
     );
   });
 
-  it("carries the failing dB and frame index on render_error for a psnr fallback that failed hard afterward", () => {
+  it("carries the failing dB, frame index, and threshold on render_error for a psnr fallback that failed hard afterward", () => {
     trackRenderError({
       fps: 30,
       quality: "standard",
@@ -263,6 +263,7 @@ describe("render telemetry events", () => {
       captureDeFallbackReason: "psnr",
       captureDeFallbackFailedDb: 28.4,
       captureDeFallbackFrameIndex: 649,
+      captureDeFallbackThresholdDb: 32,
     });
 
     expect(trackEvent).toHaveBeenCalledWith(
@@ -271,6 +272,7 @@ describe("render telemetry events", () => {
         de_fallback_reason: "psnr",
         de_fallback_failed_db: 28.4,
         de_fallback_frame_index: 649,
+        de_fallback_threshold_db: 32,
       }),
       undefined,
     );
@@ -296,7 +298,7 @@ describe("render telemetry events", () => {
     );
   });
 
-  it("carries the perfSummary-sourced failing dB and frame index on render_complete", () => {
+  it("carries the perfSummary-sourced failing dB, frame index, and threshold on render_complete", () => {
     trackRenderComplete({
       durationMs: 1000,
       fps: 30,
@@ -307,6 +309,7 @@ describe("render telemetry events", () => {
       deFallbackReason: "psnr",
       deFallbackFailedDb: 28.4,
       deFallbackFrameIndex: 649,
+      deFallbackThresholdDb: 32,
     });
 
     expect(trackEvent).toHaveBeenCalledWith(
@@ -315,6 +318,7 @@ describe("render telemetry events", () => {
         de_fallback_reason: "psnr",
         de_fallback_failed_db: 28.4,
         de_fallback_frame_index: 649,
+        de_fallback_threshold_db: 32,
       }),
       undefined,
     );

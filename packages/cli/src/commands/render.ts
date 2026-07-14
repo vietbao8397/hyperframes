@@ -2066,6 +2066,7 @@ function trackRenderMetrics(
     deFallbackReason: perf?.drawElement?.fallbackReason,
     deFallbackFailedDb: perf?.drawElement?.fallbackFailedDb,
     deFallbackFrameIndex: perf?.drawElement?.fallbackFrameIndex,
+    deFallbackThresholdDb: perf?.drawElement?.fallbackThresholdDb,
     deBlankSuspects: perf?.drawElement?.blankSuspects,
     deBlankDeterministicAccepts: perf?.drawElement?.blankDeterministicAccepts,
     deBlankRecaptures: perf?.drawElement?.blankRecaptures,

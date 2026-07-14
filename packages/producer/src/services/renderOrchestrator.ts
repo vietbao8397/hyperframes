@@ -103,6 +103,7 @@ import { resolveEffectiveHdrMode } from "./render/hdrMode.js";
 import {
   buildRenderPerfSummary,
   pushWorkerDedupPerfs,
+  roundDb,
   worstSubTimelineWaitOutcome,
 } from "./render/perfSummary.js";
 import { getCaptureStageBrowserConsole } from "./render/captureStageError.js";
@@ -454,6 +455,8 @@ export interface RenderPerfSummary {
     fallbackFailedDb?: number;
     /** Frame index the verification failure was detected at; set for both "psnr" and "blank" fallback reasons. */
     fallbackFrameIndex?: number;
+    /** The HF_DE_VERIFY_MIN_DB threshold the failing dB breached; only set alongside fallbackFailedDb (psnr reason). */
+    fallbackThresholdDb?: number;
     /** Blank-guard counters. */
     blankSuspects: number;
     blankDeterministicAccepts: number;
@@ -1744,9 +1747,14 @@ export async function executeRenderJob(
     let deFallbackReason: string | undefined;
     // Structured detail behind deFallbackReason's "blank"/"psnr" bucket — the
     // failing dB and frame index otherwise only exist as text inside the
-    // thrown error's message, unavailable to telemetry.
+    // thrown error's message, unavailable to telemetry. Rounded once here
+    // (roundDb) so both downstream consumers — the render_complete
+    // perfSummary path and the crash-survival RenderCaptureObservability
+    // mirror — report the identical dB, not two different precisions for
+    // the same underlying score (review finding).
     let deFallbackFailedDb: number | undefined;
     let deFallbackFrameIndex: number | undefined;
+    let deFallbackThresholdDb: number | undefined;
     let deDrainStats: import("./render/stages/captureStreamingStage.js").DeDrainStats | undefined;
     updateCaptureObservability({ forceScreenshot: captureForceScreenshot });
     observability.checkpoint("compile", "composition metadata resolved", {
@@ -2730,8 +2738,9 @@ export async function executeRenderJob(
               : "capture_error";
           if (isVerifyError) {
             const verifyDetails = getDrawElementVerificationDetails(err);
-            deFallbackFailedDb = verifyDetails?.failedDb;
+            deFallbackFailedDb = roundDb(verifyDetails?.failedDb);
             deFallbackFrameIndex = verifyDetails?.frameIndex;
+            deFallbackThresholdDb = roundDb(verifyDetails?.verifyThresholdDb);
           }
           log.warn(
             isVerifyError
@@ -2752,6 +2761,7 @@ export async function executeRenderJob(
             deFallbackReason,
             deFallbackFailedDb,
             deFallbackFrameIndex,
+            deFallbackThresholdDb,
           });
           probeSession = null;
           // Must clear BEFORE resolveParallelRouterRetryPlan recomputes
@@ -3042,6 +3052,7 @@ export async function executeRenderJob(
         fallbackReason: deFallbackReason,
         fallbackFailedDb: deFallbackFailedDb,
         fallbackFrameIndex: deFallbackFrameIndex,
+        fallbackThresholdDb: deFallbackThresholdDb,
         drainStats: deDrainStats,
       },
       hdrDiagnostics,
